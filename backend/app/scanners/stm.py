@@ -62,6 +62,9 @@ def parse_stm_html(html: str, source_url: str) -> list[FundingCallCandidate]:
             continue
         seen_titles.add(normalized_title)
 
+        relevance_reason = (
+            "STM-liiketoimintasäännön mukaan kaikki uudet haut ovat relevantteja."
+        )
         calls.append(
             FundingCallCandidate(
                 external_key=_external_key(title),
@@ -69,7 +72,7 @@ def parse_stm_html(html: str, source_url: str) -> list[FundingCallCandidate]:
                 title=title,
                 source_url=HttpUrl(source_url),
                 relevance_status=RelevanceStatus.RELEVANT,
-                relevance_reason="STM-liiketoimintasäännön mukaan kaikki uudet haut ovat relevantteja.",
+                relevance_reason=relevance_reason,
                 evidence=(
                     Evidence(
                         section="STM funding call heading",
