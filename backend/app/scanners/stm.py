@@ -37,10 +37,13 @@ def _candidate_buttons(root: Tag | BeautifulSoup) -> Iterable[Tag]:
     against accidentally ingesting navigation/search buttons.
     """
 
-    for button in root.find_all("button"):
-        title = normalize_text(button.get_text(" ", strip=True))
+    for node in root.find_all("button"):
+        if not isinstance(node, Tag):
+            continue
+
+        title = normalize_text(node.get_text(" ", strip=True))
         if len(title) >= 20 and "valtionavustus" in title.casefold():
-            yield button
+            yield node
 
 
 def parse_stm_html(html: str, source_url: str) -> list[FundingCallCandidate]:
