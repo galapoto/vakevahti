@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     stm_url: HttpUrl = HttpUrl("https://stm.fi/vuoden-2026-valtionavustushaut")
     http_timeout_seconds: float = 30.0
     user_agent: str = "VakeVahti/0.1 (+maintainer-contact-not-configured)"
+    database_url: str = (
+        "postgresql+asyncpg://vakevahti:vakevahti@localhost:5432/vakevahti"
+    )
 
 
 @lru_cache
