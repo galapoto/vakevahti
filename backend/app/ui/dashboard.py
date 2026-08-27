@@ -13,19 +13,17 @@ DASHBOARD_HTML = r"""<!doctype html>
   <title>VakeVahti | Kehitysdemo</title>
   <style>
     :root {
-      color-scheme: dark;
-      --bg: #07111f;
-      --panel: #0d1a2b;
-      --panel-2: #102238;
-      --border: #203a55;
-      --text: #edf5ff;
-      --muted: #9eb1c5;
-      --accent: #5bd4c7;
-      --accent-2: #8aa7ff;
-      --good: #72dfa7;
-      --warn: #f0c66f;
-      --danger: #ff8f9b;
-      --shadow: 0 20px 55px rgba(0, 0, 0, .25);
+      --bg: #f5f7f8;
+      --surface: #ffffff;
+      --text: #17212b;
+      --muted: #667085;
+      --border: #dfe5e8;
+      --accent: #0f766e;
+      --accent-soft: #e8f5f3;
+      --good: #16845b;
+      --good-soft: #eaf7f1;
+      --danger: #b42318;
+      --shadow: 0 8px 24px rgba(16, 24, 40, .06);
     }
 
     * { box-sizing: border-box; }
@@ -35,219 +33,146 @@ DASHBOARD_HTML = r"""<!doctype html>
       min-height: 100vh;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
-      background:
-        radial-gradient(circle at 10% 0%, rgba(91, 212, 199, .13), transparent 30%),
-        radial-gradient(circle at 90% 10%, rgba(138, 167, 255, .12), transparent 28%),
-        var(--bg);
+      background: var(--bg);
     }
 
-    a { color: inherit; }
-
     .shell {
-      width: min(1180px, calc(100% - 32px));
+      width: min(980px, calc(100% - 32px));
       margin: 0 auto;
-      padding: 28px 0 56px;
+      padding: 28px 0 48px;
     }
 
     .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
-      margin-bottom: 26px;
+      gap: 16px;
+      margin-bottom: 34px;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 13px;
+      gap: 11px;
     }
 
     .logo {
-      width: 46px;
-      height: 46px;
+      width: 38px;
+      height: 38px;
       display: grid;
       place-items: center;
-      border-radius: 14px;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
       font-weight: 800;
-      letter-spacing: -.04em;
-      color: #06131c;
-      background: linear-gradient(135deg, var(--accent), #9af1e8);
-      box-shadow: var(--shadow);
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: 20px;
-      letter-spacing: -.02em;
-    }
-
-    .brand p {
-      margin: 4px 0 0;
-      color: var(--muted);
       font-size: 13px;
     }
 
-    .dev-pill {
-      padding: 8px 12px;
+    .brand strong { display: block; font-size: 17px; }
+    .brand span { color: var(--muted); font-size: 12px; }
+
+    .demo-tag {
+      padding: 6px 10px;
       border-radius: 999px;
-      border: 1px solid var(--border);
-      background: rgba(13, 26, 43, .7);
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-
-    .hero {
-      display: grid;
-      grid-template-columns: 1.5fr .8fr;
-      gap: 18px;
-      margin-bottom: 18px;
-    }
-
-    .panel {
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      background: linear-gradient(180deg, rgba(16, 34, 56, .96), rgba(11, 25, 42, .96));
-      box-shadow: var(--shadow);
-    }
-
-    .hero-main { padding: 34px; }
-
-    .eyebrow {
-      margin: 0 0 12px;
+      background: var(--accent-soft);
       color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: .14em;
-      font-size: 11px;
-      font-weight: 800;
+      font-size: 12px;
+      font-weight: 700;
     }
 
-    .hero h2 {
-      max-width: 760px;
+    .intro {
+      text-align: center;
+      margin: 0 auto 28px;
+      max-width: 680px;
+    }
+
+    .intro h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 5vw, 42px);
+      letter-spacing: -.035em;
+      line-height: 1.08;
+    }
+
+    .intro p {
       margin: 0;
-      font-size: clamp(30px, 5vw, 56px);
-      line-height: 1.02;
-      letter-spacing: -.045em;
-    }
-
-    .hero-copy {
-      max-width: 760px;
-      margin: 18px 0 0;
       color: var(--muted);
-      line-height: 1.65;
+      line-height: 1.6;
       font-size: 15px;
     }
 
-    .pipeline {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 24px;
-    }
-
-    .pipeline span {
-      padding: 8px 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(91, 212, 199, .22);
-      background: rgba(91, 212, 199, .08);
-      color: #c8fbf6;
-      font-size: 12px;
-    }
-
-    .hero-side {
-      padding: 24px;
+    .flow {
       display: grid;
-      align-content: center;
+      grid-template-columns: repeat(3, 1fr);
       gap: 12px;
-    }
-
-    .metric {
-      padding: 17px;
-      border-radius: 16px;
-      background: rgba(5, 17, 31, .48);
-      border: 1px solid rgba(255,255,255,.06);
-    }
-
-    .metric-label {
-      color: var(--muted);
-      font-size: 12px;
-      margin-bottom: 7px;
-    }
-
-    .metric-value {
-      display: flex;
-      align-items: baseline;
-      gap: 7px;
-      font-size: 22px;
-      font-weight: 750;
-    }
-
-    .metric-value small {
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
       margin-bottom: 18px;
     }
 
-    .status-card { padding: 18px; }
-
-    .status-line {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
+    .step {
+      position: relative;
+      padding: 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      min-height: 122px;
     }
 
-    .status-title {
-      font-weight: 700;
-      font-size: 14px;
+    .step-number {
+      width: 27px;
+      height: 27px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 12px;
+      margin-bottom: 12px;
     }
 
-    .status-card p {
-      margin: 9px 0 0;
+    .step h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+    }
+
+    .step p {
+      margin: 0;
       color: var(--muted);
       font-size: 13px;
-      line-height: 1.55;
+      line-height: 1.5;
     }
 
-    .dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      box-shadow: 0 0 0 4px rgba(114, 223, 167, .08);
-      background: var(--good);
+    .count {
+      color: var(--accent);
+      font-weight: 800;
+      font-size: 24px;
+      line-height: 1;
     }
 
-    .dot.warn {
-      background: var(--warn);
-      box-shadow: 0 0 0 4px rgba(240, 198, 111, .08);
+    .action-card,
+    .results-card {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
     }
 
-    .section { padding: 24px; }
-
-    .section-head {
+    .action-card {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 20px;
+      padding: 20px;
       margin-bottom: 18px;
     }
 
-    .section h3 {
-      margin: 0;
-      font-size: 20px;
-      letter-spacing: -.02em;
+    .action-card h2 {
+      margin: 0 0 5px;
+      font-size: 18px;
     }
 
-    .section-subtitle {
-      margin: 5px 0 0;
+    .action-card p {
+      margin: 0;
       color: var(--muted);
       font-size: 13px;
     }
@@ -255,113 +180,146 @@ DASHBOARD_HTML = r"""<!doctype html>
     button {
       appearance: none;
       border: 0;
-      border-radius: 12px;
-      padding: 11px 15px;
+      border-radius: 10px;
+      padding: 12px 18px;
       font: inherit;
       font-weight: 750;
-      color: #07151b;
-      background: linear-gradient(135deg, var(--accent), #8be9df);
+      color: white;
+      background: var(--accent);
       cursor: pointer;
-      transition: transform .14s ease, opacity .14s ease;
-    }
-
-    button:hover { transform: translateY(-1px); }
-    button:disabled { cursor: wait; opacity: .58; transform: none; }
-
-    .scan-state {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 11px 13px;
-      margin-bottom: 14px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: rgba(5, 17, 31, .45);
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .scan-state strong { color: var(--text); }
-
-    .calls {
-      display: grid;
-      gap: 10px;
-    }
-
-    .call {
-      display: grid;
-      grid-template-columns: 42px 1fr auto;
-      gap: 14px;
-      align-items: start;
-      padding: 16px;
-      border: 1px solid rgba(255,255,255,.07);
-      border-radius: 16px;
-      background: rgba(5, 17, 31, .38);
-    }
-
-    .call-index {
-      width: 36px;
-      height: 36px;
-      display: grid;
-      place-items: center;
-      border-radius: 11px;
-      background: rgba(138, 167, 255, .10);
-      color: #cfd8ff;
-      font-weight: 800;
-      font-size: 12px;
-    }
-
-    .call-title {
-      margin: 0 0 6px;
-      font-size: 14px;
-      line-height: 1.45;
-    }
-
-    .call-reason {
-      margin: 0;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      padding: 7px 9px;
-      border-radius: 999px;
-      border: 1px solid rgba(114, 223, 167, .2);
-      background: rgba(114, 223, 167, .08);
-      color: #bdf7d5;
-      font-size: 11px;
-      font-weight: 750;
-      text-decoration: none;
       white-space: nowrap;
     }
 
+    button:hover { filter: brightness(.96); }
+    button:disabled { opacity: .55; cursor: wait; }
+
+    .status {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 13px;
+      margin-bottom: 16px;
+      border-radius: 10px;
+      background: var(--good-soft);
+      color: var(--good);
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .status.visible { display: flex; }
+    .status.error { background: #fff0ee; color: var(--danger); }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      flex: 0 0 auto;
+    }
+
+    .results-card { padding: 22px; }
+
+    .results-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .results-head h2 { margin: 0 0 4px; font-size: 19px; }
+    .results-head p { margin: 0; color: var(--muted); font-size: 13px; }
+
     .empty {
-      padding: 30px;
+      padding: 34px 20px;
       text-align: center;
       color: var(--muted);
       border: 1px dashed var(--border);
-      border-radius: 16px;
+      border-radius: 12px;
+      font-size: 14px;
     }
 
-    .error { color: var(--danger); }
+    .calls { display: grid; gap: 8px; }
 
-    .footer {
-      margin-top: 16px;
-      color: #6f8398;
+    .call {
+      display: grid;
+      grid-template-columns: 30px 1fr auto;
+      align-items: center;
+      gap: 11px;
+      padding: 12px 13px;
+      border: 1px solid var(--border);
+      border-radius: 11px;
+    }
+
+    .call-index {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: #f0f3f5;
+      color: var(--muted);
       font-size: 11px;
-      text-align: center;
-      line-height: 1.5;
+      font-weight: 800;
     }
 
-    @media (max-width: 820px) {
-      .hero, .grid { grid-template-columns: 1fr; }
-      .call { grid-template-columns: 38px 1fr; }
-      .call .badge { grid-column: 2; justify-self: start; }
-      .section-head { align-items: flex-start; flex-direction: column; }
+    .call-title {
+      font-size: 13px;
+      font-weight: 650;
+      line-height: 1.4;
+    }
+
+    .badge {
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: var(--good-soft);
+      color: var(--good);
+      font-size: 10px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .more-button {
+      display: none;
+      margin: 14px auto 0;
+      color: var(--accent);
+      background: transparent;
+      border: 1px solid var(--border);
+    }
+
+    .more-button.visible { display: block; }
+
+    details {
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    summary {
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    .technical {
+      margin-top: 10px;
+      line-height: 1.7;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: #f0f3f5;
+      color: #344054;
+    }
+
+    @media (max-width: 720px) {
+      .flow { grid-template-columns: 1fr; }
+      .action-card { align-items: stretch; flex-direction: column; }
+      .call { grid-template-columns: 30px 1fr; }
+      .badge { grid-column: 2; justify-self: start; }
       .topbar { align-items: flex-start; }
     }
   </style>
@@ -372,151 +330,178 @@ DASHBOARD_HTML = r"""<!doctype html>
       <div class="brand">
         <div class="logo">VV</div>
         <div>
-          <h1>VakeVahti</h1>
-          <p>Rahoitusmahdollisuuksien seuranta ja datan käsittely</p>
+          <strong>VakeVahti</strong>
+          <span>Rahoitushakujen seuranta</span>
         </div>
       </div>
-      <div class="dev-pill">Kehitysdemo · Milestone 2</div>
+      <div class="demo-tag">Kehitysdemo</div>
     </header>
 
-    <section class="hero">
-      <div class="panel hero-main">
-        <p class="eyebrow">Työpaikan tarpeesta rakennettu dataputki</p>
-        <h2>Julkisista rahoituslähteistä jäljitettävää ja käsiteltävää tietoa.</h2>
-        <p class="hero-copy">
-          Nykyinen toteutus hakee STM:n rahoitushaut HTTP:n kautta, parsii ne lähderakenteesta,
-          normalisoi ne yhteiseen FundingCallCandidate-malliin ja validoi tuloksen. PostgreSQL-
-          persistenssikerros, muutosten tunnistus ja historiaversiointi on nyt rakennettu seuraavaa
-          käyttöönottovaihetta varten.
-        </p>
-        <div class="pipeline" aria-label="Dataputki">
-          <span>Extract</span><span>Parse</span><span>Normalize</span><span>Validate</span>
-          <span>Deduplicate</span><span>Persist</span><span>Detect changes</span>
-        </div>
+    <section class="intro">
+      <h1>Näin VakeVahti toimii</h1>
+      <p>
+        Järjestelmä tarkistaa julkisen rahoituslähteen, poimii rahoitushaut ja muuttaa ne
+        yhtenäiseen, tarkistettavaan muotoon.
+      </p>
+    </section>
+
+    <section class="flow" aria-label="VakeVahdin toimintavaiheet">
+      <article class="step">
+        <div class="step-number">1</div>
+        <h2>Lähde</h2>
+        <p><strong>STM</strong><br>stm.fi:n valtionavustushaut</p>
+      </article>
+      <article class="step">
+        <div class="step-number">2</div>
+        <h2>Haku ja käsittely</h2>
+        <p>VakeVahti hakee sivun, tunnistaa haut ja validoi tiedot.</p>
+      </article>
+      <article class="step">
+        <div class="step-number">3</div>
+        <h2>Tulos</h2>
+        <p><span class="count" id="call-count">–</span><br><span id="count-label">rahoitushakua löydetty</span></p>
+      </article>
+    </section>
+
+    <section class="action-card">
+      <div>
+        <h2>Kokeile live-hakua</h2>
+        <p>Painike hakee tiedot oikeasti STM:n verkkosivulta juuri nyt.</p>
       </div>
-
-      <aside class="panel hero-side">
-        <div class="metric">
-          <div class="metric-label">Live-lähde</div>
-          <div class="metric-value">STM <small>stm.fi</small></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Tällä hetkellä löydetty</div>
-          <div class="metric-value"><span id="call-count">—</span> <small>rahoitushakua</small></div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Koodin laatukerrokset</div>
-          <div class="metric-value">Ruff · mypy · pytest</div>
-        </div>
-      </aside>
+      <button id="scan-button" type="button">Hae STM:n rahoitushaut</button>
     </section>
 
-    <section class="grid" aria-label="Järjestelmän tila">
-      <article class="panel status-card">
-        <div class="status-line"><span class="status-title">FastAPI-palvelu</span><span class="dot"></span></div>
-        <p>Käynnissä paikallisesti. Terveystarkistus: <code>/health/live</code>.</p>
-      </article>
-      <article class="panel status-card">
-        <div class="status-line"><span class="status-title">STM-ingestointi</span><span class="dot"></span></div>
-        <p>Live HTTP -haku, semanttinen HTML-parsinta, vakaa lähdeavain ja fail-loudly-rakennetarkistus.</p>
-      </article>
-      <article class="panel status-card">
-        <div class="status-line"><span class="status-title">PostgreSQL-kerros</span><span class="dot warn"></span></div>
-        <p>Toteutettu SQLAlchemy + Alembic -tasolla. Työasemalla ei vielä ole hyväksyttyä paikallista PostgreSQL-runtimea.</p>
-      </article>
-    </section>
+    <div class="status" id="scan-status" role="status">
+      <span class="status-dot"></span>
+      <span id="scan-message"></span>
+    </div>
 
-    <section class="panel section">
-      <div class="section-head">
+    <section class="results-card">
+      <div class="results-head">
         <div>
-          <h3>STM:n rahoitushaut</h3>
-          <p class="section-subtitle">Painike käynnistää oikean live-skannauksen nykyisellä adapterilla.</p>
+          <h2>Löydetyt rahoitushaut</h2>
+          <p id="results-subtitle">Käynnistä haku nähdäksesi nykyiset tulokset.</p>
         </div>
-        <button id="scan-button" type="button">Hae STM:n haut nyt</button>
       </div>
 
-      <div class="scan-state" id="scan-state">
-        <span class="dot warn" id="scan-dot"></span>
-        <span id="scan-message">Valmiina live-skannaukseen.</span>
+      <div id="calls" class="calls">
+        <div class="empty">Ei tuloksia vielä.</div>
       </div>
-      <div class="calls" id="calls"><div class="empty">Rahoitushaut ladataan tähän.</div></div>
+      <button id="more-button" class="more-button" type="button">Näytä kaikki</button>
+
+      <details>
+        <summary>Näytä tekninen toteutus</summary>
+        <div class="technical">
+          Live-polku: <code>STM → HTTP → HTML-parsinta → FundingCallCandidate → validointi → API → UI</code>.<br>
+          PostgreSQL-, muutostunnistus- ja historiakerros on toteutettu, mutta paikallinen tietokanta
+          odottaa työaseman hyväksyttyä PostgreSQL-runtimea.
+        </div>
+      </details>
     </section>
-
-    <p class="footer">
-      Tämä näkymä on kehitysvaiheen mentoridemo. Se näyttää oikeasti toteutetut ominaisuudet eikä esitä
-      vielä keskeneräisiä työnkulkuja valmiina tuotantotoimintoina.
-    </p>
   </main>
 
   <script>
-    const button = document.getElementById("scan-button");
-    const count = document.getElementById("call-count");
-    const callsRoot = document.getElementById("calls");
-    const scanMessage = document.getElementById("scan-message");
-    const scanDot = document.getElementById("scan-dot");
+    const scanButton = document.getElementById('scan-button');
+    const callsNode = document.getElementById('calls');
+    const countNode = document.getElementById('call-count');
+    const countLabel = document.getElementById('count-label');
+    const statusNode = document.getElementById('scan-status');
+    const messageNode = document.getElementById('scan-message');
+    const subtitleNode = document.getElementById('results-subtitle');
+    const moreButton = document.getElementById('more-button');
 
-    function make(tag, className, text) {
-      const node = document.createElement(tag);
-      if (className) node.className = className;
-      if (text !== undefined) node.textContent = text;
-      return node;
+    let allCalls = [];
+    let expanded = false;
+
+    function setStatus(message, isError = false) {
+      messageNode.textContent = message;
+      statusNode.classList.add('visible');
+      statusNode.classList.toggle('error', isError);
     }
 
-    function renderCalls(calls) {
-      callsRoot.replaceChildren();
-      if (!calls.length) {
-        callsRoot.appendChild(make("div", "empty", "Lähteestä ei löytynyt rahoitushakuja."));
+    function createCallRow(call, index) {
+      const row = document.createElement('div');
+      row.className = 'call';
+
+      const number = document.createElement('div');
+      number.className = 'call-index';
+      number.textContent = String(index + 1).padStart(2, '0');
+
+      const title = document.createElement('div');
+      title.className = 'call-title';
+      title.textContent = call.title;
+
+      const badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = call.relevance_status === 'RELEVANT' ? 'Relevantti' : call.relevance_status;
+
+      row.append(number, title, badge);
+      return row;
+    }
+
+    function renderCalls() {
+      callsNode.replaceChildren();
+
+      if (!allCalls.length) {
+        const empty = document.createElement('div');
+        empty.className = 'empty';
+        empty.textContent = 'Rahoitushakuja ei löytynyt.';
+        callsNode.appendChild(empty);
+        moreButton.classList.remove('visible');
         return;
       }
 
-      calls.forEach((call, index) => {
-        const row = make("article", "call");
-        row.appendChild(make("div", "call-index", String(index + 1).padStart(2, "0")));
+      const visibleCalls = expanded ? allCalls : allCalls.slice(0, 5);
+      visibleCalls.forEach((call, index) => callsNode.appendChild(createCallRow(call, index)));
 
-        const content = make("div", "call-content");
-        content.appendChild(make("h4", "call-title", call.title));
-        content.appendChild(make("p", "call-reason", call.relevance_reason));
-        row.appendChild(content);
-
-        const link = make("a", "badge", "RELEVANT · avaa lähde");
-        link.href = call.source_url;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        row.appendChild(link);
-        callsRoot.appendChild(row);
-      });
-    }
-
-    async function scanSTM() {
-      button.disabled = true;
-      button.textContent = "Haetaan...";
-      scanDot.className = "dot warn";
-      scanMessage.className = "";
-      scanMessage.textContent = "VakeVahti hakee ja jäsentää STM:n live-sivua...";
-
-      try {
-        const response = await fetch("/api/demo/stm-calls", { cache: "no-store" });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.detail || "Live-skannaus epäonnistui.");
-
-        count.textContent = String(payload.count);
-        renderCalls(payload.calls);
-        scanDot.className = "dot";
-        scanMessage.textContent = `Onnistui: ${payload.count} rahoitushakua löydetty ja validoitu.`;
-      } catch (error) {
-        count.textContent = "—";
-        scanDot.className = "dot warn";
-        scanMessage.className = "error";
-        scanMessage.textContent = `Skannaus epäonnistui: ${error.message}`;
-        callsRoot.replaceChildren(make("div", "empty error", "Lähdettä ei voitu lukea tällä hetkellä."));
-      } finally {
-        button.disabled = false;
-        button.textContent = "Hae STM:n haut nyt";
+      if (allCalls.length > 5) {
+        moreButton.classList.add('visible');
+        moreButton.textContent = expanded ? 'Näytä vähemmän' : `Näytä kaikki (${allCalls.length})`;
+      } else {
+        moreButton.classList.remove('visible');
       }
     }
 
-    button.addEventListener("click", scanSTM);
-    window.addEventListener("DOMContentLoaded", scanSTM);
+    async function runScan() {
+      scanButton.disabled = true;
+      scanButton.textContent = 'Haetaan…';
+      statusNode.classList.remove('error');
+      setStatus('Haetaan STM:n rahoitushakuja…');
+      subtitleNode.textContent = 'Live-haku on käynnissä.';
+
+      try {
+        const response = await fetch('/api/demo/stm-calls', { cache: 'no-store' });
+        if (!response.ok) {
+          const errorPayload = await response.json().catch(() => ({}));
+          throw new Error(errorPayload.detail || `HTTP ${response.status}`);
+        }
+
+        const payload = await response.json();
+        allCalls = payload.calls || [];
+        expanded = false;
+        countNode.textContent = String(payload.count);
+        countLabel.textContent = payload.count === 1 ? 'rahoitushaku löydetty' : 'rahoitushakua löydetty';
+        subtitleNode.textContent = `STM:stä löytyi ${payload.count} rahoitushakua.`;
+        setStatus(`Valmis. ${payload.count} rahoitushakua löydetty ja validoitu.`);
+        renderCalls();
+      } catch (error) {
+        allCalls = [];
+        countNode.textContent = '–';
+        subtitleNode.textContent = 'Hakua ei voitu suorittaa.';
+        callsNode.innerHTML = '<div class="empty">Tuloksia ei voitu ladata.</div>';
+        moreButton.classList.remove('visible');
+        setStatus(`Haku epäonnistui: ${error.message}`, true);
+      } finally {
+        scanButton.disabled = false;
+        scanButton.textContent = 'Hae STM:n rahoitushaut';
+      }
+    }
+
+    scanButton.addEventListener('click', runScan);
+    moreButton.addEventListener('click', () => {
+      expanded = !expanded;
+      renderCalls();
+    });
   </script>
 </body>
 </html>
