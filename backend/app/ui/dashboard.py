@@ -1,8 +1,8 @@
 """Self-contained development dashboard served by FastAPI.
 
-This is intentionally dependency-light so it can run on the managed workplace
-machine without Node.js or a separate frontend toolchain. It is a mentor/demo
-surface, not the final employee-facing UI.
+The dashboard is intentionally dependency-light so it can run on the managed
+workplace machine. It demonstrates the current STM vertical slice without
+pretending that scheduled multi-source monitoring is already implemented.
 """
 
 DASHBOARD_HTML = r"""<!doctype html>
@@ -50,11 +50,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       margin-bottom: 34px;
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 11px;
-    }
+    .brand { display: flex; align-items: center; gap: 11px; }
 
     .logo {
       width: 38px;
@@ -83,7 +79,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     .intro {
       text-align: center;
       margin: 0 auto 28px;
-      max-width: 680px;
+      max-width: 720px;
     }
 
     .intro h1 {
@@ -108,7 +104,6 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     .step {
-      position: relative;
       padding: 18px;
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -130,17 +125,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       margin-bottom: 12px;
     }
 
-    .step h2 {
-      margin: 0 0 6px;
-      font-size: 16px;
-    }
-
-    .step p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.5;
-    }
+    .step h2 { margin: 0 0 6px; font-size: 16px; }
+    .step p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
     .count {
       color: var(--accent);
@@ -166,16 +152,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       margin-bottom: 18px;
     }
 
-    .action-card h2 {
-      margin: 0 0 5px;
-      font-size: 18px;
-    }
-
-    .action-card p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
+    .action-card h2 { margin: 0 0 5px; font-size: 18px; }
+    .action-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
     button {
       appearance: none;
@@ -218,15 +196,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     .results-card { padding: 22px; }
-
-    .results-head {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 14px;
-    }
-
+    .results-head { margin-bottom: 14px; }
     .results-head h2 { margin: 0 0 4px; font-size: 19px; }
     .results-head p { margin: 0; color: var(--muted); font-size: 13px; }
 
@@ -263,11 +233,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       font-weight: 800;
     }
 
-    .call-title {
-      font-size: 13px;
-      font-weight: 650;
-      line-height: 1.4;
-    }
+    .call-title { font-size: 13px; font-weight: 650; line-height: 1.4; }
 
     .badge {
       padding: 5px 8px;
@@ -297,16 +263,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       font-size: 12px;
     }
 
-    summary {
-      color: var(--text);
-      cursor: pointer;
-      font-weight: 650;
-    }
-
-    .technical {
-      margin-top: 10px;
-      line-height: 1.7;
-    }
+    summary { color: var(--text); cursor: pointer; font-weight: 650; }
+    .technical { margin-top: 10px; line-height: 1.7; }
 
     code {
       padding: 2px 5px;
@@ -340,20 +298,20 @@ DASHBOARD_HTML = r"""<!doctype html>
     <section class="intro">
       <h1>Näin VakeVahti toimii</h1>
       <p>
-        Järjestelmä tarkistaa julkisen rahoituslähteen, poimii rahoitushaut ja muuttaa ne
-        yhtenäiseen, tarkistettavaan muotoon.
+        Valmiissa käytössä VakeVahti tarkistaa rahoituslähteet automaattisesti ajastuksen mukaan.
+        Tässä kehitysdemossa nykyinen STM-adapteri voidaan käynnistää käsin.
       </p>
     </section>
 
     <section class="flow" aria-label="VakeVahdin toimintavaiheet">
       <article class="step">
         <div class="step-number">1</div>
-        <h2>Lähde</h2>
-        <p><strong>STM</strong><br>stm.fi:n valtionavustushaut</p>
+        <h2>Seurattava lähde</h2>
+        <p><strong>Nykyinen toteutus: STM</strong><br>stm.fi:n valtionavustushaut</p>
       </article>
       <article class="step">
         <div class="step-number">2</div>
-        <h2>Haku ja käsittely</h2>
+        <h2>Automaattinen käsittely</h2>
         <p>VakeVahti hakee sivun, tunnistaa haut ja validoi tiedot.</p>
       </article>
       <article class="step">
@@ -365,10 +323,13 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     <section class="action-card">
       <div>
-        <h2>Kokeile live-hakua</h2>
-        <p>Painike hakee tiedot oikeasti STM:n verkkosivulta juuri nyt.</p>
+        <h2>Manuaalinen testihaku</h2>
+        <p>
+          Painike on demo- ja ylläpitokäyttöä varten. Varsinainen seuranta rakennetaan
+          ajastetuksi, jolloin käyttäjän ei tarvitse käynnistää hakua itse.
+        </p>
       </div>
-      <button id="scan-button" type="button">Hae STM:n rahoitushaut</button>
+      <button id="scan-button" type="button">Päivitä STM nyt</button>
     </section>
 
     <div class="status" id="scan-status" role="status">
@@ -378,10 +339,8 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     <section class="results-card">
       <div class="results-head">
-        <div>
-          <h2>Löydetyt rahoitushaut</h2>
-          <p id="results-subtitle">Käynnistä haku nähdäksesi nykyiset tulokset.</p>
-        </div>
+        <h2>Löydetyt rahoitushaut</h2>
+        <p id="results-subtitle">Käynnistä testihaku nähdäksesi nykyiset STM-tulokset.</p>
       </div>
 
       <div id="calls" class="calls">
@@ -392,9 +351,10 @@ DASHBOARD_HTML = r"""<!doctype html>
       <details>
         <summary>Näytä tekninen toteutus</summary>
         <div class="technical">
-          Live-polku: <code>STM → HTTP → HTML-parsinta → FundingCallCandidate → validointi → API → UI</code>.<br>
-          PostgreSQL-, muutostunnistus- ja historiakerros on toteutettu, mutta paikallinen tietokanta
-          odottaa työaseman hyväksyttyä PostgreSQL-runtimea.
+          Nykyinen toimiva live-polku: <code>STM → HTTP → HTML-parsinta → FundingCallCandidate → validointi → API → UI</code>.<br>
+          Suunnitellut seurantalähteet: STM, Haeavustuksia.fi, EURA 2021, Sitra ja Suomen Akatemia.<br>
+          Seuraavat tuotantovaiheet ovat PostgreSQL-persistenssin käyttöönotto, ajastettu seuranta,
+          muutostunnistus ja ilmoitukset. Manuaalinen "Päivitä nyt" säilyy ylläpito- ja testitoimintona.
         </div>
       </details>
     </section>
@@ -464,7 +424,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     async function runScan() {
       scanButton.disabled = true;
-      scanButton.textContent = 'Haetaan…';
+      scanButton.textContent = 'Päivitetään…';
       statusNode.classList.remove('error');
       setStatus('Haetaan STM:n rahoitushakuja…');
       subtitleNode.textContent = 'Live-haku on käynnissä.';
@@ -493,7 +453,7 @@ DASHBOARD_HTML = r"""<!doctype html>
         setStatus(`Haku epäonnistui: ${error.message}`, true);
       } finally {
         scanButton.disabled = false;
-        scanButton.textContent = 'Hae STM:n rahoitushaut';
+        scanButton.textContent = 'Päivitä STM nyt';
       }
     }
 
