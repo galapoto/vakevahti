@@ -19,6 +19,16 @@ def test_parse_stm_html_discovers_funding_calls() -> None:
     assert calls[0].evidence[0].text == calls[0].title
 
 
+def test_parse_stm_html_captures_accordion_details() -> None:
+    calls = parse_stm_html(FIXTURE.read_text(encoding="utf-8"), SOURCE_URL)
+
+    assert calls[0].description_text == "Avustuksen hakuaika on 29.6.2026 - 31.8.2026."
+    assert calls[0].evidence[1].section == "STM funding call details"
+    assert calls[1].description_text == (
+        "Haettavana on valtionavustusta yksilöllisen lääketieteen edistämiseen."
+    )
+
+
 def test_external_key_is_stable_for_same_title() -> None:
     html = FIXTURE.read_text(encoding="utf-8")
 
