@@ -4,7 +4,7 @@ import asyncio
 from app.config import get_settings
 from app.db.session import create_engine, create_session_factory
 from app.scanners.stm import STMScanner
-from app.services.persistence import persist_candidates
+from app.services.ingestion import ScanTrigger, run_source_ingestion
 
 
 async def scan_stm() -> None:
@@ -19,24 +19,26 @@ async def scan_stm() -> None:
 async def scan_stm_persist() -> None:
     settings = get_settings()
     scanner = STMScanner(settings)
-    calls = await scanner.scan()
-
     engine = create_engine(settings)
     session_factory = create_session_factory(engine)
 
     try:
-        async with session_factory() as session:
-            async with session.begin():
-                result = await persist_candidates(session, calls)
+        result = await run_source_ingestion(
+            scanner,
+            session_factory,
+            trigger=ScanTrigger.MANUAL_CLI,
+        )
     finally:
         await engine.dispose()
 
+    persistence = result.persistence
     print(
         "STM persistence complete: "
-        f"baseline={result.baseline} "
-        f"new={result.new_count} "
-        f"unchanged={result.unchanged_count} "
-        f"changed={result.changed_count}"
+        f"run_id={result.run_id} "
+        f"baseline={persistence.baseline} "
+        f"new={persistence.new_count} "
+        f"unchanged={persistence.unchanged_count} "
+        f"changed={persistence.changed_count}"
     )
 
 

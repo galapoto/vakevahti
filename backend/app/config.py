@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import HttpUrl
+from pydantic import Field, HttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://vakevahti:vakevahti@localhost:5432/vakevahti"
     )
+    scan_interval_minutes: int = Field(default=60, ge=5, le=1440)
+    scan_run_on_startup: bool = True
 
 
 @lru_cache

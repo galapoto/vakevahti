@@ -1,15 +1,19 @@
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Identity,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
+    Uuid,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -80,3 +84,28 @@ class SourceState(Base):
     last_successful_scan_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class SourceScanRun(Base):
+    """Operational audit record for one source ingestion attempt."""
+
+    __tablename__ = "source_scan_runs"
+    __table_args__ = (
+        Index("ix_source_scan_runs_source_started", "source_code", "started_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    source_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    trigger_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    baseline: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    discovered_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    unchanged_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    changed_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
