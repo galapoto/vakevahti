@@ -108,7 +108,7 @@ async def get_funding_call(
             _current_membership_condition(),
         )
     )
-    return await session.scalar(statement)
+    return (await session.scalars(statement)).one_or_none()
 
 
 def _health_from_latest_run(latest_run: SourceScanRun | None) -> SourceHealthStatus:
