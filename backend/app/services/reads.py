@@ -49,6 +49,12 @@ class SourceHealthSnapshot:
     latest_error_type: str | None
 
 
+def _current_membership_condition() -> object:
+    """Return the invariant defining membership in a source's latest good snapshot."""
+
+    return FundingCallRecord.last_seen_at == SourceState.last_successful_scan_at
+
+
 async def list_funding_calls(
     session: AsyncSession,
     *,
@@ -56,18 +62,24 @@ async def list_funding_calls(
     limit: int,
     offset: int,
 ) -> FundingCallPage:
-    """Return a stable bounded page from the current-state funding table."""
+    """Return a stable bounded page from each source's latest successful snapshot."""
 
-    filters = []
+    filters = [_current_membership_condition()]
     normalized_source = source_code.strip().upper() if source_code else None
     if normalized_source:
         filters.append(FundingCallRecord.source_code == normalized_source)
 
-    count_statement = select(func.count()).select_from(FundingCallRecord).where(*filters)
+    count_statement = (
+        select(func.count())
+        .select_from(FundingCallRecord)
+        .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
+        .where(*filters)
+    )
     total = int((await session.scalar(count_statement)) or 0)
 
     statement = (
         select(FundingCallRecord)
+        .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
         .where(*filters)
         .order_by(
             FundingCallRecord.application_deadline_at.asc().nulls_last(),
@@ -85,9 +97,17 @@ async def get_funding_call(
     session: AsyncSession,
     funding_call_id: int,
 ) -> FundingCallRecord | None:
-    """Read one current funding call by internal API identifier."""
+    """Read one call only if it belongs to its source's latest successful snapshot."""
 
-    return await session.get(FundingCallRecord, funding_call_id)
+    statement = (
+        select(FundingCallRecord)
+        .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
+        .where(
+            FundingCallRecord.id == funding_call_id,
+            _current_membership_condition(),
+        )
+    )
+    return await session.scalar(statement)
 
 
 def _health_from_latest_run(latest_run: SourceScanRun | None) -> SourceHealthStatus:
@@ -117,6 +137,8 @@ async def list_source_health(
 
     The configured source list defines which adapters are expected to operate in this
     process. PostgreSQL remains the source of truth for their latest persisted state.
+    Current-call counts include only records observed in each source's latest successful
+    snapshot, so disappeared calls remain historical but no longer inflate the operator view.
     """
 
     normalized_codes = tuple(dict.fromkeys(code.strip().upper() for code in source_codes))
@@ -146,7 +168,11 @@ async def list_source_health(
 
     count_rows = await session.execute(
         select(FundingCallRecord.source_code, func.count(FundingCallRecord.id))
-        .where(FundingCallRecord.source_code.in_(normalized_codes))
+        .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
+        .where(
+            FundingCallRecord.source_code.in_(normalized_codes),
+            _current_membership_condition(),
+        )
         .group_by(FundingCallRecord.source_code)
     )
     call_counts = {source_code: int(count) for source_code, count in count_rows.all()}
