@@ -20,6 +20,11 @@ pytestmark = [
     ),
 ]
 
+TRUNCATE_SQL = (
+    "TRUNCATE TABLE source_scan_runs, funding_call_versions, funding_calls, "
+    "source_states RESTART IDENTITY CASCADE"
+)
+
 
 def make_candidate() -> FundingCallCandidate:
     return FundingCallCandidate(
@@ -38,12 +43,7 @@ async def test_concurrent_first_persistence_is_serialized_per_source() -> None:
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async with engine.begin() as connection:
-        await connection.execute(
-            text(
-                "TRUNCATE TABLE source_scan_runs, funding_call_versions, funding_calls, "
-                "source_states RESTART IDENTITY CASCADE"
-            )
-        )
+        await connection.execute(text(TRUNCATE_SQL))
 
     candidate = make_candidate()
 
@@ -72,4 +72,6 @@ async def test_concurrent_first_persistence_is_serialized_per_source() -> None:
         assert record_count == 1
         assert version_count == 1
     finally:
+        async with engine.begin() as connection:
+            await connection.execute(text(TRUNCATE_SQL))
         await engine.dispose()
