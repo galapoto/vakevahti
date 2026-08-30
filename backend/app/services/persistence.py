@@ -43,15 +43,30 @@ class PersistBatchResult:
         return sum(outcome.status is ChangeStatus.CHANGED for outcome in self.outcomes)
 
 
-def _validate_batch(candidates: Sequence[FundingCallCandidate]) -> str:
-    if not candidates:
-        raise ValueError("Persistence batch must contain at least one funding call.")
+def _resolve_source_code(
+    candidates: Sequence[FundingCallCandidate],
+    source_code: str | None,
+) -> str:
+    """Resolve one source code, including a legitimate empty source snapshot."""
 
-    source_codes = {candidate.source_code for candidate in candidates}
-    if len(source_codes) != 1:
+    candidate_sources = {candidate.source_code for candidate in candidates}
+    if len(candidate_sources) > 1:
         raise ValueError("A persistence batch must contain calls from exactly one source.")
 
-    return next(iter(source_codes))
+    normalized_explicit = source_code.strip().upper() if source_code else None
+    if normalized_explicit:
+        if candidate_sources and candidate_sources != {normalized_explicit}:
+            raise ValueError(
+                "Explicit source_code does not match the candidates in the persistence batch."
+            )
+        return normalized_explicit
+
+    if not candidate_sources:
+        raise ValueError(
+            "source_code is required when persisting a successful empty source snapshot."
+        )
+
+    return next(iter(candidate_sources))
 
 
 async def _serialize_source_transaction(session: AsyncSession, source_code: str) -> None:
@@ -83,20 +98,32 @@ async def persist_candidates(
     session: AsyncSession,
     candidates: Sequence[FundingCallCandidate],
     *,
+    source_code: str | None = None,
     observed_at: datetime | None = None,
 ) -> PersistBatchResult:
-    """Persist one successful source scan without committing the caller's transaction."""
+    """Persist one authoritative successful source snapshot without committing.
 
-    source_code = _validate_batch(candidates)
+    Current membership is represented by a snapshot watermark rather than deleting
+    disappeared records. Every candidate observed in this successful scan gets the
+    same ``last_seen_at`` value, and ``SourceState.last_successful_scan_at`` advances
+    to that value in the same transaction. A record is therefore current exactly
+    when its ``last_seen_at`` equals its source's latest successful snapshot time.
+
+    ``source_code`` is required only when a legitimate successful scan contains zero
+    candidates, because there is then no candidate from which to infer the source.
+    """
+
+    resolved_source = _resolve_source_code(candidates, source_code)
     observed_at = observed_at or datetime.now(UTC)
 
-    await _serialize_source_transaction(session, source_code)
+    await _serialize_source_transaction(session, resolved_source)
 
-    state = await session.get(SourceState, source_code, with_for_update=True)
+    state = await session.get(SourceState, resolved_source, with_for_update=True)
     baseline = state is None or state.baseline_completed_at is None
+    previous_snapshot_at = state.last_successful_scan_at if state else None
 
     if state is None:
-        state = SourceState(source_code=source_code)
+        state = SourceState(source_code=resolved_source)
         session.add(state)
         await session.flush()
 
@@ -147,26 +174,37 @@ async def persist_candidates(
             )
             status = ChangeStatus.NEW
 
-        elif record.content_hash == content_hash:
-            record.last_seen_at = observed_at
-            status = ChangeStatus.UNCHANGED
-
         else:
-            record.current_version += 1
-            _apply_candidate(record, candidate)
-            record.content_hash = content_hash
+            was_current = (
+                previous_snapshot_at is not None
+                and record.last_seen_at == previous_snapshot_at
+            )
+            content_changed = record.content_hash != content_hash
+
+            if content_changed:
+                record.current_version += 1
+                _apply_candidate(record, candidate)
+                record.content_hash = content_hash
+                session.add(
+                    FundingCallVersion(
+                        funding_call_id=record.id,
+                        version_number=record.current_version,
+                        content_hash=content_hash,
+                        snapshot=candidate_snapshot(candidate),
+                        observed_at=observed_at,
+                    )
+                )
+
             record.last_seen_at = observed_at
 
-            session.add(
-                FundingCallVersion(
-                    funding_call_id=record.id,
-                    version_number=record.current_version,
-                    content_hash=content_hash,
-                    snapshot=candidate_snapshot(candidate),
-                    observed_at=observed_at,
-                )
-            )
-            status = ChangeStatus.CHANGED
+            if not was_current:
+                # Reappearance after absence is NEW relative to the previous current
+                # source snapshot, even though historical identity is preserved.
+                status = ChangeStatus.NEW
+            elif content_changed:
+                status = ChangeStatus.CHANGED
+            else:
+                status = ChangeStatus.UNCHANGED
 
         outcomes.append(
             PersistOutcome(
@@ -184,7 +222,7 @@ async def persist_candidates(
     await session.flush()
 
     return PersistBatchResult(
-        source_code=source_code,
+        source_code=resolved_source,
         baseline=baseline,
         outcomes=tuple(outcomes),
     )
