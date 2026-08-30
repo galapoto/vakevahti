@@ -149,20 +149,21 @@ async def test_snapshot_membership_handles_disappearance_empty_scan_and_reappear
         )
     assert one_missing.unchanged_count == 1
 
-    state = await db_session.get(SourceState, "STM")
-    assert state is not None
-    assert state.last_successful_scan_at == one_missing_at
+    async with db_session.begin():
+        state = await db_session.get(SourceState, "STM")
+        assert state is not None
+        assert state.last_successful_scan_at == one_missing_at
 
-    records = {
-        record.external_key: record
-        for record in (
-            await db_session.scalars(
-                select(FundingCallRecord).where(FundingCallRecord.source_code == "STM")
-            )
-        ).all()
-    }
-    assert records["call-1"].last_seen_at == one_missing_at
-    assert records["call-2"].last_seen_at == first_seen
+        records = {
+            record.external_key: record
+            for record in (
+                await db_session.scalars(
+                    select(FundingCallRecord).where(FundingCallRecord.source_code == "STM")
+                )
+            ).all()
+        }
+        assert records["call-1"].last_seen_at == one_missing_at
+        assert records["call-2"].last_seen_at == first_seen
 
     empty_at = first_seen + timedelta(hours=2)
     async with db_session.begin():
@@ -177,9 +178,10 @@ async def test_snapshot_membership_handles_disappearance_empty_scan_and_reappear
     assert empty.unchanged_count == 0
     assert empty.changed_count == 0
 
-    state = await db_session.get(SourceState, "STM")
-    assert state is not None
-    assert state.last_successful_scan_at == empty_at
+    async with db_session.begin():
+        state = await db_session.get(SourceState, "STM")
+        assert state is not None
+        assert state.last_successful_scan_at == empty_at
 
     reappeared_at = first_seen + timedelta(hours=3)
     async with db_session.begin():
