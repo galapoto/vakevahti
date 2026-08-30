@@ -1,12 +1,13 @@
 import os
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import HttpUrl
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.db.models import FundingCallRecord, SourceScanRun
+from app.db.models import FundingCallRecord, SourceScanRun, SourceState
 from app.domain.funding_call import FundingCallCandidate, RelevanceStatus
 from app.services.ingestion import ScanRunStatus, ScanTrigger, run_source_ingestion
 
@@ -102,6 +103,50 @@ async def test_successful_ingestion_is_audited(
             select(func.count()).select_from(FundingCallRecord)
         )
         assert record_count == 1
+
+
+async def test_successful_empty_snapshot_is_audited_and_advances_source_state(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    first_observation = datetime(2026, 8, 30, 9, 0, tzinfo=UTC)
+    empty_observation = first_observation + timedelta(hours=1)
+
+    first = await run_source_ingestion(
+        FakeScanner(candidates=[make_candidate()]),
+        session_factory,
+        trigger=ScanTrigger.SCHEDULED,
+        observed_at=first_observation,
+    )
+    assert first.persistence.new_count == 1
+
+    empty = await run_source_ingestion(
+        FakeScanner(candidates=[]),
+        session_factory,
+        trigger=ScanTrigger.SCHEDULED,
+        observed_at=empty_observation,
+    )
+
+    assert empty.persistence.baseline is False
+    assert empty.persistence.new_count == 0
+    assert empty.persistence.unchanged_count == 0
+    assert empty.persistence.changed_count == 0
+
+    async with session_factory() as session:
+        run = await session.get(SourceScanRun, empty.run_id)
+        assert run is not None
+        assert run.status == ScanRunStatus.SUCCEEDED.value
+        assert run.discovered_count == 0
+        assert run.new_count == 0
+        assert run.unchanged_count == 0
+        assert run.changed_count == 0
+
+        state = await session.get(SourceState, "STM")
+        assert state is not None
+        assert state.last_successful_scan_at == empty_observation
+
+        record = await session.scalar(select(FundingCallRecord))
+        assert record is not None
+        assert record.last_seen_at == first_observation
 
 
 async def test_failed_source_scan_is_audited_without_funding_mutation(
