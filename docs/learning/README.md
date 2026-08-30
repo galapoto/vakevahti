@@ -12,5 +12,6 @@ Engineering lessons and interview preparation are written while the system is bu
 - `sitra-live-semantic-revalidation.md`: corrected live Sitra proof, timezone interpretation, source-scoped data repair, semantic health and identity trade-off interview Q&A
 - `milestone-5-read-api-source-health.md`: persisted read path, API contracts, pagination, source-health semantics, dependency injection and backend/data/system-design interview Q&A
 - `milestone-6-operational-dashboard.md`: persisted operator dashboard, serving-vs-acquisition boundary, frontend-tooling trade-off, XSS-safe rendering, UI failure states and frontend/data/system-design interview Q&A
+- `milestone-6-interactive-card-design.md`: interactive KPI/source/opportunity card semantics, global-vs-filtered state, provenance links, accessible native controls, source color identities and frontend/data/security interview Q&A
 
 New milestone-specific records should be added here and later consolidated into the project-wide interview/training package.
