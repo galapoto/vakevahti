@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +16,12 @@ from app.services.reads import get_funding_call, list_funding_calls, list_source
 
 router = APIRouter(prefix="/api")
 
+SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
+SettingsDependency = Annotated[Settings, Depends(get_runtime_settings)]
+SourceCodeQuery = Annotated[str | None, Query(min_length=1, max_length=32)]
+LimitQuery = Annotated[int, Query(ge=1, le=100)]
+OffsetQuery = Annotated[int, Query(ge=0)]
+
 
 @router.get(
     "/funding-calls",
@@ -21,10 +29,10 @@ router = APIRouter(prefix="/api")
     tags=["funding"],
 )
 async def funding_calls(
-    source_code: str | None = Query(default=None, min_length=1, max_length=32),
-    limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_db_session),
+    session: SessionDependency,
+    source_code: SourceCodeQuery = None,
+    limit: LimitQuery = 50,
+    offset: OffsetQuery = 0,
 ) -> FundingCallListResponse:
     """Read current persisted funding opportunities without touching live source sites."""
 
@@ -49,7 +57,7 @@ async def funding_calls(
 )
 async def funding_call_detail(
     funding_call_id: int,
-    session: AsyncSession = Depends(get_db_session),
+    session: SessionDependency,
 ) -> FundingCallDetail:
     """Read one current persisted funding opportunity."""
 
@@ -68,8 +76,8 @@ async def funding_call_detail(
     tags=["health"],
 )
 async def source_health(
-    session: AsyncSession = Depends(get_db_session),
-    settings: Settings = Depends(get_runtime_settings),
+    session: SessionDependency,
+    settings: SettingsDependency,
 ) -> SourceHealthResponse:
     """Expose configured-source operational state from persisted audit facts."""
 
