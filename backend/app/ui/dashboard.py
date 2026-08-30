@@ -29,13 +29,21 @@ DASHBOARD_HTML = r"""<!doctype html>
       --warning-soft: #fff6e5;
       --danger: #b42318;
       --danger-soft: #fff0ee;
-      --neutral-soft: #eef2f5;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --purple: #7c3aed;
+      --purple-soft: #f5f3ff;
+      --amber: #b45309;
+      --amber-soft: #fffbeb;
       --shadow: 0 10px 30px rgba(16, 24, 40, .06);
+      --shadow-hover: 0 14px 30px rgba(16, 24, 40, .11);
       --radius-lg: 18px;
       --radius-md: 13px;
     }
 
     * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
 
     body {
       margin: 0;
@@ -46,6 +54,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     button, select, a { font: inherit; }
+    button { color: inherit; }
 
     .shell {
       width: min(1180px, calc(100% - 32px));
@@ -61,11 +70,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       margin-bottom: 28px;
     }
 
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+    .brand { display: flex; align-items: center; gap: 12px; }
 
     .logo {
       width: 42px;
@@ -139,6 +144,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     .refresh-button {
+      min-height: 44px;
       border: 1px solid var(--border);
       border-radius: 11px;
       padding: 10px 14px;
@@ -149,7 +155,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       box-shadow: 0 2px 8px rgba(16, 24, 40, .04);
     }
 
-    .refresh-button:hover { border-color: #bac6cc; }
+    .refresh-button:hover { border-color: #bac6cc; box-shadow: var(--shadow); }
+    .refresh-button:focus-visible { outline: 3px solid rgba(15, 118, 110, .24); outline-offset: 2px; }
     .refresh-button:disabled { opacity: .55; cursor: wait; }
 
     .status-banner {
@@ -185,13 +192,35 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     .kpi {
-      min-height: 118px;
-      padding: 17px;
-      border: 1px solid var(--border);
+      --kpi-color: var(--accent);
+      --kpi-soft: var(--accent-soft);
+      position: relative;
+      min-height: 126px;
+      padding: 18px;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--kpi-color) 25%, var(--border));
       border-radius: var(--radius-md);
-      background: var(--surface);
+      background: linear-gradient(145deg, var(--surface) 45%, var(--kpi-soft));
       box-shadow: var(--shadow);
+      text-align: left;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
     }
+
+    .kpi::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--kpi-color);
+    }
+
+    .kpi:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); border-color: var(--kpi-color); }
+    .kpi:focus-visible { outline: 3px solid color-mix(in srgb, var(--kpi-color) 28%, transparent); outline-offset: 2px; }
+    .kpi-blue { --kpi-color: var(--blue); --kpi-soft: var(--blue-soft); }
+    .kpi-green { --kpi-color: var(--good); --kpi-soft: var(--good-soft); }
+    .kpi-amber { --kpi-color: var(--amber); --kpi-soft: var(--amber-soft); }
+    .kpi-purple { --kpi-color: var(--purple); --kpi-soft: var(--purple-soft); }
 
     .kpi-label {
       color: var(--muted);
@@ -204,7 +233,8 @@ DASHBOARD_HTML = r"""<!doctype html>
     .kpi-value {
       display: block;
       margin-top: 11px;
-      font-size: 29px;
+      color: var(--kpi-color);
+      font-size: 31px;
       font-weight: 850;
       line-height: 1;
       letter-spacing: -.035em;
@@ -218,7 +248,15 @@ DASHBOARD_HTML = r"""<!doctype html>
       line-height: 1.4;
     }
 
-    .section { margin-top: 24px; }
+    .kpi-action {
+      display: inline-flex;
+      margin-top: 10px;
+      color: var(--kpi-color);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .section { margin-top: 24px; scroll-margin-top: 18px; }
 
     .section-head {
       display: flex;
@@ -228,18 +266,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       margin-bottom: 12px;
     }
 
-    .section-head h2 {
-      margin: 0;
-      font-size: 20px;
-      letter-spacing: -.02em;
-    }
-
-    .section-head p {
-      margin: 5px 0 0;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.45;
-    }
+    .section-head h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+    .section-head p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 
     .source-grid {
       display: grid;
@@ -248,12 +276,46 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     .source-card {
-      padding: 17px;
-      border: 1px solid var(--border);
+      --source-color: var(--accent);
+      --source-soft: var(--accent-soft);
+      position: relative;
+      overflow: hidden;
+      border: 1px solid color-mix(in srgb, var(--source-color) 24%, var(--border));
       border-radius: var(--radius-md);
-      background: var(--surface);
+      background: linear-gradient(155deg, #fff 52%, var(--source-soft));
       box-shadow: var(--shadow);
+      transition: box-shadow .16s ease, transform .16s ease, border-color .16s ease;
     }
+
+    .source-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 4px;
+      background: var(--source-color);
+    }
+
+    .source-card[data-source="STM"] { --source-color: var(--blue); --source-soft: var(--blue-soft); }
+    .source-card[data-source="SITRA"] { --source-color: var(--purple); --source-soft: var(--purple-soft); }
+    .source-card[data-source="ACADEMY"] { --source-color: var(--amber); --source-soft: var(--amber-soft); }
+    .source-card:hover { transform: translateY(-2px); border-color: var(--source-color); box-shadow: var(--shadow-hover); }
+    .source-card.flash { animation: card-flash .85s ease; }
+
+    @keyframes card-flash {
+      0%, 100% { box-shadow: var(--shadow); }
+      45% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--source-color) 22%, transparent), var(--shadow-hover); }
+    }
+
+    .source-card-main {
+      width: 100%;
+      padding: 18px 18px 12px;
+      border: 0;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .source-card-main:focus-visible { outline: 3px solid color-mix(in srgb, var(--source-color) 28%, transparent); outline-offset: -3px; }
 
     .source-card-head {
       display: flex;
@@ -263,7 +325,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       margin-bottom: 15px;
     }
 
-    .source-name { font-size: 16px; font-weight: 850; }
+    .source-name { color: var(--source-color); font-size: 16px; font-weight: 850; }
 
     .health-badge {
       padding: 5px 8px;
@@ -276,22 +338,10 @@ DASHBOARD_HTML = r"""<!doctype html>
     .health-healthy { color: var(--good); background: var(--good-soft); }
     .health-failing { color: var(--danger); background: var(--danger-soft); }
     .health-running { color: var(--warning); background: var(--warning-soft); }
-    .health-never_scanned { color: #53606b; background: var(--neutral-soft); }
+    .health-never_scanned { color: #53606b; background: #eef2f5; }
 
-    .source-count {
-      font-size: 25px;
-      font-weight: 850;
-      letter-spacing: -.03em;
-    }
-
-    .source-count span {
-      margin-left: 5px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 650;
-      letter-spacing: 0;
-    }
-
+    .source-count { color: var(--source-color); font-size: 27px; font-weight: 850; letter-spacing: -.03em; }
+    .source-count span { margin-left: 5px; color: var(--muted); font-size: 12px; font-weight: 650; letter-spacing: 0; }
     .fact-list { display: grid; gap: 8px; margin-top: 15px; }
 
     .fact {
@@ -299,12 +349,43 @@ DASHBOARD_HTML = r"""<!doctype html>
       grid-template-columns: 1fr auto;
       gap: 10px;
       padding-top: 8px;
-      border-top: 1px solid #edf1f3;
+      border-top: 1px solid color-mix(in srgb, var(--source-color) 11%, #edf1f3);
       color: var(--muted);
       font-size: 11px;
     }
 
     .fact strong { color: #344054; font-weight: 750; text-align: right; }
+
+    .source-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 18px 14px;
+      border-top: 1px solid color-mix(in srgb, var(--source-color) 12%, #edf1f3);
+    }
+
+    .source-filter-hint { color: var(--source-color); font-size: 11px; font-weight: 800; }
+
+    .source-home-link,
+    .row-source-link,
+    .source-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      border: 1px solid currentColor;
+      border-radius: 8px;
+      color: var(--accent-strong);
+      background: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .source-home-link { min-height: 34px; padding: 7px 9px; color: var(--source-color); }
+    .source-home-link:hover, .row-source-link:hover, .source-link:hover { filter: brightness(.97); }
+    .source-home-link:focus-visible, .row-source-link:focus-visible, .source-link:focus-visible { outline: 3px solid rgba(15, 118, 110, .2); outline-offset: 2px; }
 
     .toolbar {
       display: flex;
@@ -317,17 +398,12 @@ DASHBOARD_HTML = r"""<!doctype html>
       background: var(--surface);
     }
 
-    .toolbar-left {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 0;
-    }
-
+    .toolbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .toolbar label { color: var(--muted); font-size: 12px; font-weight: 750; }
 
     .source-select {
-      min-width: 170px;
+      min-width: 185px;
+      min-height: 40px;
       padding: 8px 32px 8px 10px;
       border: 1px solid #cbd5dc;
       border-radius: 9px;
@@ -335,6 +411,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       background: white;
     }
 
+    .source-select:focus-visible { outline: 3px solid rgba(15, 118, 110, .2); outline-offset: 2px; }
     .list-count { color: var(--muted); font-size: 12px; }
 
     .opportunity-panel {
@@ -355,43 +432,59 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     .opportunity-list { display: grid; }
-    .opportunity { border-top: 1px solid #edf1f3; }
+
+    .opportunity {
+      --row-color: var(--accent);
+      --row-soft: var(--accent-soft);
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      border-top: 1px solid #edf1f3;
+      background: #fff;
+    }
+
     .opportunity:first-child { border-top: 0; }
+    .opportunity[data-source="STM"] { --row-color: var(--blue); --row-soft: var(--blue-soft); }
+    .opportunity[data-source="SITRA"] { --row-color: var(--purple); --row-soft: var(--purple-soft); }
+    .opportunity[data-source="ACADEMY"] { --row-color: var(--amber); --row-soft: var(--amber-soft); }
+    .opportunity:hover { background: color-mix(in srgb, var(--row-soft) 45%, #fff); }
+
+    .opportunity::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 3px;
+      background: var(--row-color);
+      opacity: .65;
+    }
 
     .opportunity-toggle {
-      width: 100%;
+      min-width: 0;
       display: grid;
       grid-template-columns: 94px minmax(0, 1fr) 170px 28px;
       gap: 14px;
       align-items: center;
-      padding: 15px 17px;
+      padding: 15px 12px 15px 18px;
       border: 0;
-      color: inherit;
-      background: #fff;
+      background: transparent;
       text-align: left;
       cursor: pointer;
     }
 
-    .opportunity-toggle:hover { background: #fbfcfd; }
-    .opportunity-toggle:focus-visible { outline: 3px solid rgba(15, 118, 110, .22); outline-offset: -3px; }
+    .opportunity-toggle:hover .opportunity-title { color: var(--row-color); }
+    .opportunity-toggle:focus-visible { outline: 3px solid color-mix(in srgb, var(--row-color) 24%, transparent); outline-offset: -3px; }
 
     .source-pill {
       justify-self: start;
       padding: 5px 8px;
       border-radius: 999px;
-      color: var(--accent-strong);
-      background: var(--accent-soft);
+      color: var(--row-color);
+      background: var(--row-soft);
       font-size: 10px;
       font-weight: 850;
     }
 
-    .opportunity-title {
-      min-width: 0;
-      font-size: 13px;
-      font-weight: 750;
-      line-height: 1.45;
-    }
-
+    .opportunity-title { min-width: 0; font-size: 13px; font-weight: 750; line-height: 1.45; transition: color .14s ease; }
     .deadline-block { text-align: right; }
 
     .deadline-label {
@@ -408,20 +501,27 @@ DASHBOARD_HTML = r"""<!doctype html>
     .deadline-soon .deadline-value { color: var(--warning); }
     .deadline-past .deadline-value { color: var(--danger); }
 
-    .chevron {
-      justify-self: end;
-      color: #667085;
-      font-size: 20px;
-      line-height: 1;
-      transition: transform .16s ease;
-    }
-
+    .chevron { justify-self: end; color: var(--row-color); font-size: 20px; line-height: 1; transition: transform .16s ease; }
     .opportunity-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
 
+    .row-action {
+      display: flex;
+      align-items: center;
+      padding: 10px 14px 10px 4px;
+    }
+
+    .row-source-link {
+      min-height: 36px;
+      padding: 7px 9px;
+      color: var(--row-color);
+      white-space: nowrap;
+    }
+
     .opportunity-details {
+      grid-column: 1 / -1;
       padding: 0 17px 18px 125px;
-      background: var(--surface-soft);
       border-top: 1px solid #edf1f3;
+      background: color-mix(in srgb, var(--row-soft) 52%, var(--surface-soft));
     }
 
     .details-loading { padding: 17px 0 0; color: var(--muted); font-size: 12px; }
@@ -468,40 +568,21 @@ DASHBOARD_HTML = r"""<!doctype html>
       background: #fff;
     }
 
-    .source-link {
-      display: inline-flex;
-      align-items: center;
-      margin-top: 12px;
-      padding: 8px 10px;
-      border: 1px solid #cbd5dc;
-      border-radius: 8px;
-      color: var(--accent-strong);
-      background: #fff;
-      font-size: 12px;
-      font-weight: 750;
-      text-decoration: none;
-    }
+    .source-link { margin-top: 12px; min-height: 36px; padding: 8px 10px; }
 
-    .source-link:hover { background: #f3faf8; }
+    .footnote { margin-top: 18px; color: var(--muted); font-size: 11px; line-height: 1.55; }
 
-    .footnote {
-      margin-top: 18px;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.55;
-    }
-
-    @media (max-width: 900px) {
+    @media (max-width: 1000px) {
       .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .source-grid { grid-template-columns: 1fr; }
       .opportunity-toggle { grid-template-columns: 76px minmax(0, 1fr) 28px; }
       .deadline-block { grid-column: 2; grid-row: 2; text-align: left; }
       .chevron { grid-column: 3; grid-row: 1 / span 2; }
-      .opportunity-details { padding-left: 17px; }
+      .opportunity-details { padding-left: 18px; }
       .detail-grid { grid-template-columns: 1fr 1fr; }
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 700px) {
       .shell { width: min(100% - 20px, 1180px); padding-top: 14px; }
       .topbar { align-items: flex-start; }
       .system-chip { display: none; }
@@ -511,12 +592,20 @@ DASHBOARD_HTML = r"""<!doctype html>
       .toolbar { align-items: stretch; flex-direction: column; }
       .toolbar-left { align-items: stretch; flex-direction: column; }
       .source-select { width: 100%; }
-      .opportunity-toggle { grid-template-columns: 1fr 28px; gap: 8px 12px; }
+      .opportunity { grid-template-columns: minmax(0, 1fr); }
+      .opportunity-toggle { grid-template-columns: minmax(0, 1fr) 28px; gap: 8px 12px; padding-right: 18px; }
       .source-pill { grid-column: 1; }
       .opportunity-title { grid-column: 1; }
       .deadline-block { grid-column: 1; grid-row: auto; }
       .chevron { grid-column: 2; grid-row: 1 / span 3; }
+      .row-action { padding: 0 18px 14px; }
+      .row-source-link { width: 100%; min-height: 44px; }
       .detail-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
     }
   </style>
 </head>
@@ -551,33 +640,37 @@ DASHBOARD_HTML = r"""<!doctype html>
     </div>
 
     <section class="kpis" aria-label="Tilannekuvan tunnusluvut">
-      <article class="kpi">
+      <button id="kpi-current" class="kpi kpi-blue" type="button">
         <span class="kpi-label">Nykyiset rahoitushaut</span>
         <strong class="kpi-value" id="total-calls">–</strong>
-        <span class="kpi-detail">Viimeisimmistä onnistuneista lähdehavainnoista</span>
-      </article>
-      <article class="kpi">
+        <span class="kpi-detail">Kaikkien lähteiden viimeisin onnistunut tilannekuva</span>
+        <span class="kpi-action">Näytä kaikki haut →</span>
+      </button>
+      <button id="kpi-healthy" class="kpi kpi-green" type="button">
         <span class="kpi-label">Terveet lähteet</span>
         <strong class="kpi-value" id="healthy-sources">–</strong>
         <span class="kpi-detail" id="healthy-detail">Lähdetilaa ladataan</span>
-      </article>
-      <article class="kpi">
+        <span class="kpi-action">Näytä lähteet →</span>
+      </button>
+      <button id="kpi-attention" class="kpi kpi-amber" type="button">
         <span class="kpi-label">Huomiota vaativat lähteet</span>
         <strong class="kpi-value" id="attention-sources">–</strong>
-        <span class="kpi-detail">FAILED/RUNNING/ei vielä skannattu</span>
-      </article>
-      <article class="kpi">
+        <span class="kpi-detail">FAILED / RUNNING / ei vielä skannattu</span>
+        <span class="kpi-action">Tarkista tila →</span>
+      </button>
+      <button id="kpi-latest" class="kpi kpi-purple" type="button">
         <span class="kpi-label">Viimeisin onnistunut lähdeajo</span>
         <strong class="kpi-value" id="latest-success">–</strong>
         <span class="kpi-detail" id="latest-success-detail">Ei vielä tietoa</span>
-      </article>
+        <span class="kpi-action">Näytä viimeisin lähde →</span>
+      </button>
     </section>
 
-    <section class="section" aria-labelledby="sources-heading">
+    <section id="sources-section" class="section" aria-labelledby="sources-heading">
       <div class="section-head">
         <div>
           <h2 id="sources-heading">Lähteiden tila</h2>
-          <p>Operatiivinen tila ja viimeisimmän ajon tallennetut faktat lähteittäin.</p>
+          <p>Klikkaa lähdekorttia rajataksesi rahoitushaut. Avaa lähde -painike vie alkuperäiselle julkiselle seurantasivulle.</p>
         </div>
       </div>
       <div id="source-grid" class="source-grid" aria-live="polite">
@@ -585,11 +678,11 @@ DASHBOARD_HTML = r"""<!doctype html>
       </div>
     </section>
 
-    <section class="section" aria-labelledby="calls-heading">
+    <section id="calls-section" class="section" aria-labelledby="calls-heading">
       <div class="section-head">
         <div>
           <h2 id="calls-heading">Nykyiset rahoitushaut</h2>
-          <p>Lista näyttää vain kunkin lähteen viimeisimpään onnistuneeseen tilannekuvaan kuuluvat haut.</p>
+          <p>Avaa rivi tarkempia tallennettuja tietoja varten tai siirry suoraan alkuperäiseen lähteeseen.</p>
         </div>
       </div>
 
@@ -617,7 +710,22 @@ DASHBOARD_HTML = r"""<!doctype html>
   </main>
 
   <script>
-    const state = { health: [], calls: [], details: new Map(), source: "" };
+    const state = { health: [], calls: [], details: new Map(), source: "", latestSource: null };
+
+    const SOURCE_META = {
+      STM: {
+        name: "STM",
+        home: "https://stm.fi/vuoden-2026-valtionavustushaut",
+      },
+      SITRA: {
+        name: "Sitra",
+        home: "https://asiointi.sitra.fi/",
+      },
+      ACADEMY: {
+        name: "Suomen Akatemia",
+        home: "https://www.aka.fi/tutkimusrahoitus/hae-rahoitusta/haut/",
+      },
+    };
 
     const elements = {
       refreshButton: document.getElementById("refresh-button"),
@@ -633,6 +741,12 @@ DASHBOARD_HTML = r"""<!doctype html>
       sourceFilter: document.getElementById("source-filter"),
       listCount: document.getElementById("list-count"),
       opportunityList: document.getElementById("opportunity-list"),
+      sourcesSection: document.getElementById("sources-section"),
+      callsSection: document.getElementById("calls-section"),
+      kpiCurrent: document.getElementById("kpi-current"),
+      kpiHealthy: document.getElementById("kpi-healthy"),
+      kpiAttention: document.getElementById("kpi-attention"),
+      kpiLatest: document.getElementById("kpi-latest"),
     };
 
     function clear(node) {
@@ -644,6 +758,10 @@ DASHBOARD_HTML = r"""<!doctype html>
       if (className) node.className = className;
       node.textContent = value;
       return node;
+    }
+
+    function sourceMeta(code) {
+      return SOURCE_META[code] || { name: code, home: null };
     }
 
     function showError(message) {
@@ -668,8 +786,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return { label: "Ei ilmoitettu", className: "" };
 
-      const now = new Date();
-      const days = Math.ceil((date.getTime() - now.getTime()) / 86400000);
+      const days = Math.ceil((date.getTime() - Date.now()) / 86400000);
       const label = new Intl.DateTimeFormat("fi-FI", { dateStyle: "medium", timeStyle: "short" }).format(date);
 
       if (days < 0) return { label, className: "deadline-past" };
@@ -682,11 +799,6 @@ DASHBOARD_HTML = r"""<!doctype html>
       return labels[value] || value;
     }
 
-    function sourceDisplayName(code) {
-      const names = { STM: "STM", SITRA: "Sitra", ACADEMY: "Suomen Akatemia" };
-      return names[code] || code;
-    }
-
     function addFact(container, label, value) {
       const row = document.createElement("div");
       row.className = "fact";
@@ -695,14 +807,43 @@ DASHBOARD_HTML = r"""<!doctype html>
       container.append(row);
     }
 
+    function flashCards(predicate) {
+      document.querySelectorAll(".source-card").forEach((card) => {
+        card.classList.remove("flash");
+        if (predicate(card)) {
+          void card.offsetWidth;
+          card.classList.add("flash");
+        }
+      });
+    }
+
+    async function applySourceFilter(sourceCode, scroll = true) {
+      state.source = sourceCode;
+      elements.sourceFilter.value = sourceCode;
+      state.calls = [];
+      state.details.clear();
+      elements.opportunityList.replaceChildren(text("div", "Ladataan…", "loading-state"));
+      try {
+        await fetchCalls();
+        clearError();
+        if (scroll) elements.callsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      } catch (error) {
+        showError("Rahoitushakuja ei saatu ladattua valitulle lähteelle.");
+      }
+    }
+
     function renderHealth() {
       clear(elements.sourceGrid);
+
+      const totalCurrent = state.health.reduce((sum, item) => sum + Number(item.current_call_count || 0), 0);
+      elements.totalCalls.textContent = String(totalCurrent);
 
       if (!state.health.length) {
         elements.sourceGrid.append(text("div", "Yhtään määritettyä lähdettä ei löytynyt.", "empty-state"));
         elements.healthySources.textContent = "0";
         elements.attentionSources.textContent = "0";
         elements.healthyDetail.textContent = "0 määritettyä lähdettä";
+        state.latestSource = null;
         return;
       }
 
@@ -712,17 +853,19 @@ DASHBOARD_HTML = r"""<!doctype html>
       elements.attentionSources.textContent = String(attention);
       elements.healthyDetail.textContent = `${healthy}/${state.health.length} lähdettä toimii`;
 
-      const successfulTimes = state.health
-        .map((item) => item.last_successful_scan_at)
-        .filter(Boolean)
-        .map((value) => new Date(value))
-        .filter((value) => !Number.isNaN(value.getTime()));
+      const successful = state.health
+        .filter((item) => item.last_successful_scan_at)
+        .map((item) => ({ item, date: new Date(item.last_successful_scan_at) }))
+        .filter(({ date }) => !Number.isNaN(date.getTime()))
+        .sort((a, b) => b.date.getTime() - a.date.getTime());
 
-      if (successfulTimes.length) {
-        const latest = new Date(Math.max(...successfulTimes.map((value) => value.getTime())));
-        elements.latestSuccess.textContent = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" }).format(latest);
-        elements.latestSuccessDetail.textContent = new Intl.DateTimeFormat("fi-FI", { dateStyle: "medium" }).format(latest);
+      if (successful.length) {
+        const latest = successful[0];
+        state.latestSource = latest.item.source_code;
+        elements.latestSuccess.textContent = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" }).format(latest.date);
+        elements.latestSuccessDetail.textContent = `${sourceMeta(latest.item.source_code).name} · ${new Intl.DateTimeFormat("fi-FI", { dateStyle: "medium" }).format(latest.date)}`;
       } else {
+        state.latestSource = null;
         elements.latestSuccess.textContent = "–";
         elements.latestSuccessDetail.textContent = "Ei onnistuneita ajoja";
       }
@@ -730,30 +873,40 @@ DASHBOARD_HTML = r"""<!doctype html>
       const existingOptions = new Set(Array.from(elements.sourceFilter.options).map((option) => option.value));
 
       for (const item of state.health) {
+        const meta = sourceMeta(item.source_code);
+
         if (!existingOptions.has(item.source_code)) {
           const option = document.createElement("option");
           option.value = item.source_code;
-          option.textContent = sourceDisplayName(item.source_code);
+          option.textContent = meta.name;
           elements.sourceFilter.append(option);
         }
 
         const card = document.createElement("article");
         card.className = "source-card";
+        card.dataset.source = item.source_code;
+        card.dataset.health = item.health;
+
+        const main = document.createElement("button");
+        main.type = "button";
+        main.className = "source-card-main";
+        main.setAttribute("aria-label", `Näytä lähteen ${meta.name} nykyiset rahoitushaut`);
+        main.addEventListener("click", () => applySourceFilter(item.source_code));
 
         const head = document.createElement("div");
         head.className = "source-card-head";
-        head.append(text("div", sourceDisplayName(item.source_code), "source-name"));
+        head.append(text("div", meta.name, "source-name"));
 
         const badge = text("span", healthLabel(item.health), "health-badge");
         badge.classList.add(`health-${String(item.health).toLowerCase()}`);
         head.append(badge);
-        card.append(head);
+        main.append(head);
 
         const count = document.createElement("div");
         count.className = "source-count";
         count.append(document.createTextNode(String(item.current_call_count)));
         count.append(text("span", "nykyistä hakua"));
-        card.append(count);
+        main.append(count);
 
         const facts = document.createElement("div");
         facts.className = "fact-list";
@@ -761,8 +914,24 @@ DASHBOARD_HTML = r"""<!doctype html>
         addFact(facts, "Viimeisin ajotila", item.latest_scan_status || "Ei tietoa");
         addFact(facts, "Uusia / muuttuneita", `${item.latest_new_count ?? "–"} / ${item.latest_changed_count ?? "–"}`);
         if (item.latest_error_type) addFact(facts, "Virheluokka", item.latest_error_type);
-        card.append(facts);
+        main.append(facts);
+        card.append(main);
 
+        const footer = document.createElement("div");
+        footer.className = "source-card-footer";
+        footer.append(text("span", "Näytä tämän lähteen haut →", "source-filter-hint"));
+
+        if (meta.home) {
+          const sourceHome = document.createElement("a");
+          sourceHome.className = "source-home-link";
+          sourceHome.href = meta.home;
+          sourceHome.target = "_blank";
+          sourceHome.rel = "noopener noreferrer";
+          sourceHome.textContent = "Avaa lähde ↗";
+          footer.append(sourceHome);
+        }
+
+        card.append(footer);
         elements.sourceGrid.append(card);
       }
     }
@@ -799,7 +968,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       link.href = detail.source_url;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.textContent = "Avaa alkuperäinen lähde";
+      link.textContent = "Avaa alkuperäinen lähde ↗";
       container.append(link);
     }
 
@@ -826,8 +995,9 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     function renderCalls() {
       clear(elements.opportunityList);
-      elements.totalCalls.textContent = String(state.calls.length);
-      elements.listCount.textContent = `${state.calls.length} hakua`;
+      elements.listCount.textContent = state.source
+        ? `${state.calls.length} hakua · ${sourceMeta(state.source).name}`
+        : `${state.calls.length} hakua · kaikki lähteet`;
 
       if (!state.calls.length) {
         elements.opportunityList.append(text("div", "Valitussa viimeisimmässä onnistuneessa tilannekuvassa ei ole nykyisiä rahoitushakuja.", "empty-state"));
@@ -837,12 +1007,15 @@ DASHBOARD_HTML = r"""<!doctype html>
       state.calls.forEach((call) => {
         const row = document.createElement("article");
         row.className = "opportunity";
+        row.dataset.source = call.source_code;
 
+        const detailsId = `funding-call-${call.id}-details`;
         const toggle = document.createElement("button");
         toggle.type = "button";
         toggle.className = "opportunity-toggle";
         toggle.setAttribute("aria-expanded", "false");
-        toggle.append(text("span", sourceDisplayName(call.source_code), "source-pill"));
+        toggle.setAttribute("aria-controls", detailsId);
+        toggle.append(text("span", sourceMeta(call.source_code).name, "source-pill"));
         toggle.append(text("span", call.title, "opportunity-title"));
 
         const deadline = formatDeadline(call.application_deadline_at);
@@ -854,7 +1027,19 @@ DASHBOARD_HTML = r"""<!doctype html>
         toggle.append(deadlineBlock);
         toggle.append(text("span", "›", "chevron"));
 
+        const rowAction = document.createElement("div");
+        rowAction.className = "row-action";
+        const directLink = document.createElement("a");
+        directLink.className = "row-source-link";
+        directLink.href = call.source_url;
+        directLink.target = "_blank";
+        directLink.rel = "noopener noreferrer";
+        directLink.textContent = "Avaa lähde ↗";
+        directLink.setAttribute("aria-label", `Avaa alkuperäinen lähde: ${call.title}`);
+        rowAction.append(directLink);
+
         const details = document.createElement("div");
+        details.id = detailsId;
         details.className = "opportunity-details";
         details.hidden = true;
 
@@ -865,7 +1050,7 @@ DASHBOARD_HTML = r"""<!doctype html>
           if (!expanded) await loadDetail(call.id, details);
         });
 
-        row.append(toggle, details);
+        row.append(toggle, rowAction, details);
         elements.opportunityList.append(row);
       });
     }
@@ -900,21 +1085,30 @@ DASHBOARD_HTML = r"""<!doctype html>
       }
     }
 
-    elements.sourceFilter.addEventListener("change", async (event) => {
-      state.source = event.target.value;
-      state.calls = [];
-      state.details.clear();
-      elements.opportunityList.replaceChildren(text("div", "Ladataan…", "loading-state"));
-      try {
-        await fetchCalls();
-      } catch (error) {
-        showError("Rahoitushakuja ei saatu ladattua valitulle lähteelle.");
-      }
+    elements.sourceFilter.addEventListener("change", (event) => {
+      applySourceFilter(event.target.value, false);
     });
 
     elements.refreshButton.addEventListener("click", () => {
       state.details.clear();
       loadDashboard();
+    });
+
+    elements.kpiCurrent.addEventListener("click", () => applySourceFilter(""));
+
+    elements.kpiHealthy.addEventListener("click", () => {
+      elements.sourcesSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      flashCards((card) => card.dataset.health === "HEALTHY");
+    });
+
+    elements.kpiAttention.addEventListener("click", () => {
+      elements.sourcesSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      flashCards((card) => card.dataset.health !== "HEALTHY");
+    });
+
+    elements.kpiLatest.addEventListener("click", () => {
+      elements.sourcesSection.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (state.latestSource) flashCards((card) => card.dataset.source === state.latestSource);
     });
 
     loadDashboard();
