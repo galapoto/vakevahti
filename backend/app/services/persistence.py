@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import FundingCallRecord, FundingCallVersion, SourceState
@@ -54,6 +54,20 @@ def _validate_batch(candidates: Sequence[FundingCallCandidate]) -> str:
     return next(iter(source_codes))
 
 
+async def _serialize_source_transaction(session: AsyncSession, source_code: str) -> None:
+    """Serialize persistence for one source inside the current PostgreSQL transaction.
+
+    The transaction-scoped advisory lock closes the race where two first-time scans
+    could both observe a missing SourceState and attempt to create the same source row.
+    It also keeps version calculations deterministic when manual and scheduled runs overlap.
+    """
+
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:source_code, 0))"),
+        {"source_code": source_code},
+    )
+
+
 def _apply_candidate(record: FundingCallRecord, candidate: FundingCallCandidate) -> None:
     record.title = candidate.title
     record.source_url = str(candidate.source_url)
@@ -75,6 +89,8 @@ async def persist_candidates(
 
     source_code = _validate_batch(candidates)
     observed_at = observed_at or datetime.now(UTC)
+
+    await _serialize_source_transaction(session, source_code)
 
     state = await session.get(SourceState, source_code, with_for_update=True)
     baseline = state is None or state.baseline_completed_at is None
