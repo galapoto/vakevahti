@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: first implementation slice complete; CI green; live Linux/browser validation pending.
+Status: implementation and interaction pass complete; CI/live browser validation ongoing.
 
 ## Why this milestone comes after the persisted read API
 
@@ -134,22 +134,27 @@ It does not silently replace an API failure with an empty-success display.
 
 > Zero current opportunities can be a valid successful source snapshot. An API/database failure means we do not know the current result. Showing both as an empty list would hide an operational incident and give the user false confidence.
 
-## Accessibility decisions in the first slice
+## Accessibility decisions
 
-The page uses semantic sections/headings, real buttons and a labelled source select. Expandable opportunity rows expose `aria-expanded`, and loading/list regions use `aria-live` where appropriate.
+The page uses semantic sections/headings, real buttons and a labelled source select. Expandable opportunity rows expose `aria-expanded` and `aria-controls`, and loading/list regions use `aria-live` where appropriate.
 
 The responsive layout keeps the same content hierarchy on narrower displays instead of dropping operational facts.
 
-A final browser/accessibility review is still required before Milestone 6 is merged.
+The interactive-card follow-up deliberately keeps internal actions as native buttons and external navigation as native anchors rather than creating nested or ambiguous controls. Reduced-motion preferences suppress nonessential transitions/flash emphasis.
+
+See `milestone-6-interactive-card-design.md` for the detailed interaction architecture, source color system, global-vs-filtered KPI distinction and card/link interview material.
 
 ## Testing boundary
 
-The dashboard contract test asserts that the page:
+The dashboard contract tests assert that the page:
 
 - contains the operational dashboard language
 - references the persisted source-health and funding APIs
 - does not reference `/api/demo/stm-calls`
 - no longer presents `Kehitysdemo` as the normal UI
+- retains all four KPI action controls
+- retains source-aware filter interactions and source destinations
+- retains direct funding-call provenance links and detail-expansion semantics
 
 The read APIs themselves remain covered by PostgreSQL integration tests from Milestone 5.
 
@@ -161,27 +166,31 @@ Normal CI does not call public funding websites.
 
 ## First CI evidence
 
-Backend CI #80 on the initial Milestone 6 branch passed the substantive pipeline gates:
+Backend CI #82 on the initial Milestone 6 branch passed:
 
 - dependency installation
 - Ruff
 - strict mypy
 - Alembic migrations
-- PostgreSQL pytest
+- PostgreSQL pytest: 33/33
 
 The existing Starlette/httpx deprecation warning remains tracked separately and is not a Milestone 6 regression.
 
+The interactive-card pass adds one dashboard contract test, bringing the expected suite to 34 tests once that head is validated.
+
 ## Portfolio/interview narrative
 
-> After building a durable multi-source ingestion pipeline and persisted read APIs, I replaced the original scraper-driven development page with an operator dashboard over the database serving layer. The dashboard shows current snapshot counts, source health, latest scan facts, filtered funding opportunities and on-demand details without triggering external scans. I intentionally kept the first frontend dependency-light because the current interaction complexity did not justify another build/deployment stack. I also treated upstream public text as untrusted by inserting it with `textContent`, preserved null source facts instead of guessing them, and made the no-live-scraping UI boundary a regression-tested requirement.
+> After building a durable multi-source ingestion pipeline and persisted read APIs, I replaced the original scraper-driven development page with an operator dashboard over the database serving layer. The dashboard shows current snapshot counts, source health, latest scan facts, filtered funding opportunities and on-demand details without triggering external scans. I intentionally kept the first frontend dependency-light because the current interaction complexity did not justify another build/deployment stack. I also treated upstream public text as untrusted by inserting it with `textContent`, preserved null source facts instead of guessing them, and made the no-live-scraping UI boundary a regression-tested requirement. I then made KPI, source and opportunity cards action-oriented while keeping filtering, detail expansion and external provenance navigation as distinct accessible interactions.
 
 ## Remaining validation before merge
 
-- pull the Milestone 6 branch on the Linux development machine
+- pull the latest Milestone 6 branch on the Linux development machine
 - run Ruff, strict mypy and the full PostgreSQL pytest suite
 - start the FastAPI application against the populated development database
 - visually verify the operational dashboard renders the expected 17-call / 9-1-7 source state
-- exercise source filtering and one detail expansion
+- exercise every KPI card
+- exercise each source card filter and its external source link
+- expand at least one opportunity from each source where practical and verify its direct persisted source link
 - verify no dashboard action triggers `/api/demo/stm-calls`
 - review responsive/accessibility behavior
 - record evidence and complete final PR review
