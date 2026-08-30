@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: implementation, CI and live Linux read validation complete; ready to merge.
+Status: implementation and CI complete; initial live Linux read validation passed; review-driven current-snapshot correction is green in CI and awaits final local revalidation before merge.
 
 ## Why this milestone comes after multi-source ingestion
 
@@ -160,6 +160,9 @@ Coverage includes:
 - source RUNNING state
 - NEVER_SCANNED state
 - current funding-call counts
+- disappearance from a later authoritative source snapshot
+- a successful source snapshot with zero current opportunities
+- reappearance after absence without manufacturing a content version
 
 ### QA interview question: Why is this an integration test rather than only unit tests for the query functions?
 
@@ -167,14 +170,14 @@ Coverage includes:
 
 ## Live Linux validation
 
-The final developer-machine validation ran against the populated PostgreSQL database created by the completed multi-source ingestion milestone.
+The first developer-machine validation ran against the populated PostgreSQL database created by the completed multi-source ingestion milestone.
 
-Local quality gates on the correct `feature/read-api-source-health` branch:
+Local quality gates on the correct `feature/read-api-source-health` branch before the lifecycle review correction:
 
 - Ruff: passed
 - strict mypy: passed across 29 source files
 - pytest: 30/30 passed
-- two new PostgreSQL API integration tests passed
+- two PostgreSQL API integration tests passed
 
 The real running FastAPI application then returned:
 
@@ -193,15 +196,76 @@ The live `/api/sources/health` response reported all three configured sources as
 
 The developer also proved that the old 28-test result had been caused by running the previous feature branch. Once the correct remote branch was tracked locally, the suite collected 30 tests and the persisted API route existed as expected.
 
-The separate detail/pagination behaviors do not require another ceremonial live check because they are already exercised end-to-end through ASGI against PostgreSQL in `test_funding_list_filters_paginates_and_reads_detail`: lowercase source filtering, two adjacent pages, deterministic ordering, detail serialization, 404 behavior, and the 100-record request bound are all part of the green 30-test suite. The live database check adds the complementary proof that those routes are wired to the real 17-record application state.
-
 ### Git/DevOps interview question: What did the earlier 404 reveal about branch state?
 
-> The API returned 404 because I had not actually switched to the Milestone 5 branch. `git switch` failed because the local branch did not exist, then `git pull origin feature/read-api-source-health` attempted to integrate that remote branch into the still-current Milestone 4 branch and `--ff-only` correctly refused. The old 28-test collection count was another clue. I fixed it by explicitly creating a local tracking branch from `origin/feature/read-api-source-health`, after which the expected 30 tests and persisted routes were present.
+> The API returned 404 because I had not actually switched to the Milestone 5 branch. `git switch` failed because the local branch did not exist, then `git pull origin feature/read-api-source-health` attempted to integrate that remote branch into the still-current Milestone 4 branch and `--ff-only` correctly refused. The old 28-test collection count was another clue. I fixed it by explicitly creating a local tracking branch from `origin/feature/read-api-source-health`, after which the expected tests and persisted routes were present.
 
 ### DevOps interview question: Why was `--ff-only` useful in that incident?
 
 > It prevented an accidental merge between two feature branches. Instead of silently creating an unintended history edge, Git failed loudly. That is exactly the behavior I want for disciplined milestone branches.
+
+## Review-driven lifecycle correction: current state is a projection over retained history
+
+The final PR review found a P1 correctness gap before merge. The first read implementation selected every row in `funding_calls`. That was correct for the initial live database, but it was not correct across time: if a funding opportunity disappeared from a later successful source scan, its historical row would remain in PostgreSQL and the API would continue presenting it as current forever.
+
+The correction deliberately separates **historical identity/content** from **membership in the latest successful source snapshot**.
+
+For each source, persistence now treats one successful scan as an authoritative snapshot. All calls observed in that scan receive the same `last_seen_at` timestamp as `SourceState.last_successful_scan_at`. Current membership is therefore:
+
+`funding_calls.last_seen_at == source_states.last_successful_scan_at`
+
+A call omitted from the next successful snapshot keeps its older `last_seen_at`, so it remains stored for history but disappears from current list/detail reads and from the source-health current-call count.
+
+### Why a failed scan behaves differently
+
+A failed source scan never advances `SourceState.last_successful_scan_at`. Therefore a source can report `FAILING` while the application continues serving the last known-good snapshot. A transient network or parser failure does not retire every previously known opportunity.
+
+### Why a successful zero-result scan must be supported
+
+A recognized source can legitimately have no currently open opportunities. That is different from failing to understand the source structure.
+
+The ingestion path now passes the adapter's explicit `source_code` into persistence, so a successful empty candidate list can advance the source snapshot watermark. Its audit result is `SUCCEEDED` with `discovered_count=0`; because no call gets the new watermark, the current API set for that source becomes empty.
+
+Source adapters remain responsible for failing loudly when expected structure is missing. This prevents a website redesign from being silently interpreted as a legitimate zero-call snapshot.
+
+### Reappearance semantics
+
+If a historically known call was absent from the previous successful snapshot and later appears again, it is classified as `NEW` relative to current operational state and becomes notification-eligible outside baseline. Its historical identity is reused. If its material content has not changed, no fake immutable content version is created; content versioning and current-snapshot membership remain separate concepts.
+
+### Data Engineering interview question: How do you distinguish current records from retained historical rows without deleting history?
+
+> I use the latest successful source observation as a snapshot watermark. In the same transaction, every observed call gets the snapshot time as `last_seen_at` and the source state advances `last_successful_scan_at` to that same value. The read model joins the two and treats equality as current membership. Calls missing from a later successful snapshot keep their previous observation time, so they remain historically queryable but are no longer presented as current.
+
+### System Design interview question: Why not delete calls when they disappear?
+
+> Disappearance is useful history and may be temporary. Deleting the row would throw away first-seen information, identity continuity and version history, and it would make reappearance harder to distinguish from a never-before-seen entity. I preserve the entity and change only its membership in the current source projection.
+
+### Backend interview question: Why is disappearance not a `CHANGED` content version?
+
+> The call's content may be completely unchanged; what changed is whether it belongs to the latest source snapshot. Content history and snapshot membership are different dimensions. Creating a new content version for absence would manufacture data that the source never actually published as changed content.
+
+### Reliability interview question: Why does a failed scan not make the current set empty?
+
+> Retirement is accepted only as part of a successful authoritative snapshot. A failed scan does not advance the successful-snapshot watermark, so reads continue using the previous known-good set while operational health becomes `FAILING`. This separates source availability from accepted data state.
+
+### Data-quality interview question: How do you distinguish a legitimate zero-result scan from a broken parser?
+
+> The adapter must first recognize its expected source structure and lifecycle semantics. If that contract is broken, it raises a source-structure error and ingestion is audited as failed. Only a recognized source that genuinely contains no qualifying current calls may return an empty candidate list, which persistence records as a successful zero-size snapshot.
+
+### Database interview question: What test failure occurred while adding this behavior, and what did it teach you?
+
+> One regression test performed ORM `SELECT`s and then attempted `session.begin()` again. SQLAlchemy had autobegun a transaction for the reads, so the second explicit begin failed. I scoped the inspection reads inside explicit transaction contexts. It reinforced that read-only ORM work still participates in session transaction state.
+
+## Final CI after lifecycle correction
+
+Backend CI #77 on code/test head `d6eedab3db066b850dce60855103ecc55412a9bc` passed:
+
+- Ruff
+- strict mypy across 29 source files
+- Alembic migrations
+- PostgreSQL pytest: 32 passed
+
+The two additional tests specifically prove successful empty snapshots and disappearance/reappearance behavior. The API integration test also proves that a disappeared call leaves current list results, its current-detail endpoint returns 404, and a later successful empty snapshot yields zero current calls.
 
 ## Security/privacy lesson: diagnostics should be bounded
 
@@ -215,4 +279,4 @@ The health endpoint exposes `error_type` but not the full persisted `error_messa
 
 A concise interview narrative for this milestone:
 
-> After building multi-source ingestion, I separated the serving path from the source-facing worker. I added PostgreSQL-backed read APIs with typed response contracts, bounded deterministic pagination, detail reads and an operational source-health read model. Health is derived from persisted scan audits without inventing freshness SLAs. I used an injectable async session boundary and integration-tested the HTTP contract against PostgreSQL rather than mocking the database. CI caught an executable-default dependency pattern, so I migrated the routes to FastAPI's `Annotated` dependency style instead of suppressing the lint rule. I then validated the running API against the real 17-record development database and confirmed that the serving layer reflected the corrected multi-source state exactly.
+> After building multi-source ingestion, I separated the serving path from the source-facing worker. I added PostgreSQL-backed read APIs with typed response contracts, bounded deterministic pagination, detail reads and an operational source-health read model. Health is derived from persisted scan audits without inventing freshness SLAs. I used an injectable async session boundary and integration-tested the HTTP contract against PostgreSQL rather than mocking the database. CI caught an executable-default dependency pattern, so I migrated the routes to FastAPI's `Annotated` dependency style instead of suppressing the lint rule. Final review then caught that retained historical rows could be mistaken for current opportunities. I corrected the model so current state is the latest successful source snapshot, preserved historical rows, supported legitimate zero-call snapshots, and defined reappearance separately from content versioning. The corrected lifecycle path passes the full PostgreSQL suite.
