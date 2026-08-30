@@ -22,8 +22,22 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+asyncpg://vakevahti:vakevahti@localhost:5432/vakevahti"
     )
+    enabled_sources: str = "STM"
     scan_interval_minutes: int = Field(default=60, ge=5, le=1440)
     scan_run_on_startup: bool = True
+
+    @property
+    def enabled_source_codes(self) -> tuple[str, ...]:
+        """Return normalized comma-separated source codes from configuration."""
+
+        codes = tuple(
+            source.strip().upper()
+            for source in self.enabled_sources.split(",")
+            if source.strip()
+        )
+        if not codes:
+            raise ValueError("ENABLED_SOURCES must contain at least one source code.")
+        return codes
 
 
 @lru_cache
