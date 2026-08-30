@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     timezone: str = "Europe/Helsinki"
     stm_url: HttpUrl = HttpUrl("https://stm.fi/vuoden-2026-valtionavustushaut")
+    sitra_url: HttpUrl = HttpUrl("https://asiointi.sitra.fi/")
+    academy_url: HttpUrl = HttpUrl(
+        "https://www.aka.fi/tutkimusrahoitus/hae-rahoitusta/haut/"
+    )
     http_timeout_seconds: float = 30.0
     user_agent: str = "VakeVahti/0.1 (+maintainer-contact-not-configured)"
     database_url: str = (
