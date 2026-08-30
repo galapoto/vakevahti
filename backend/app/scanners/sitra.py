@@ -1,5 +1,10 @@
+from collections.abc import Awaitable, Callable
+
 import httpx
 from bs4 import BeautifulSoup, Tag
+from playwright.async_api import Error as PlaywrightError
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright
 from pydantic import HttpUrl
 
 from app.config import Settings
@@ -14,13 +19,20 @@ from app.scanners.common import (
 
 _OPEN_STATUS = "haku käynnissä"
 _CLOSED_STATUS = "haku sulkeutunut"
+_HEADING_NAMES = ("h2", "h3", "h4", "h5", "h6")
+
+SitraHtmlRenderer = Callable[[], Awaitable[str]]
+
+
+class SitraListingStructureError(SourceStructureError):
+    """Raised when no Sitra funding-call lifecycle blocks can be recognized."""
 
 
 def _segment_text(heading: Tag) -> str:
     parts: list[str] = []
     node = heading.find_next_sibling()
     while isinstance(node, Tag):
-        if node.name in {"h2", "h3"}:
+        if node.name in _HEADING_NAMES:
             break
         text = normalize_text(node.get_text(" ", strip=True))
         if text:
@@ -36,13 +48,24 @@ def _segment_text(heading: Tag) -> str:
     return ""
 
 
+def _contains_visible_lifecycle_status(html: str) -> bool:
+    """Return whether lifecycle text is already present in non-script HTTP content."""
+
+    soup = BeautifulSoup(html, "lxml")
+    for hidden in soup.find_all(["script", "style", "template"]):
+        hidden.decompose()
+
+    text = normalize_text(soup.get_text(" ", strip=True)).casefold()
+    return _OPEN_STATUS in text or _CLOSED_STATUS in text
+
+
 def parse_sitra_html(
     html: str,
     source_url: str,
     *,
     timezone: str = "Europe/Helsinki",
 ) -> list[FundingCallCandidate]:
-    """Parse currently open Sitra funding calls from the funding service listing."""
+    """Parse currently open Sitra funding calls from a rendered funding listing."""
 
     soup = BeautifulSoup(html, "lxml")
     root = soup.find("main") or soup
@@ -50,7 +73,7 @@ def parse_sitra_html(
     recognized = 0
     calls: list[FundingCallCandidate] = []
 
-    for heading in root.find_all(["h3", "h4"]):
+    for heading in root.find_all(_HEADING_NAMES):
         if not isinstance(heading, Tag):
             continue
 
@@ -100,7 +123,7 @@ def parse_sitra_html(
         )
 
     if recognized == 0:
-        raise SourceStructureError(
+        raise SitraListingStructureError(
             "Sitra page loaded, but no funding-call status blocks were recognized. "
             "Treat this as a possible source-structure change."
         )
@@ -114,11 +137,78 @@ def parse_sitra_html(
     return calls
 
 
+async def _parse_sitra_with_render_fallback(
+    html: str,
+    source_url: str,
+    *,
+    timezone: str,
+    render_html: SitraHtmlRenderer,
+) -> list[FundingCallCandidate]:
+    """Parse HTTP HTML first and render only when lifecycle content is client-side."""
+
+    try:
+        return parse_sitra_html(html, source_url, timezone=timezone)
+    except SitraListingStructureError:
+        if _contains_visible_lifecycle_status(html):
+            raise
+
+    rendered_html = await render_html()
+    return parse_sitra_html(rendered_html, source_url, timezone=timezone)
+
+
+async def _render_sitra_html(
+    source_url: str,
+    *,
+    user_agent: str,
+    timeout_seconds: float,
+) -> str:
+    """Render Sitra's public Power Pages listing when HTTP returns only the app shell."""
+
+    timeout_ms = max(1, int(timeout_seconds * 1000))
+    status_probe = """
+    () => {
+      const text = (document.body?.innerText || "").toLocaleLowerCase("fi-FI");
+      return text.includes("haku käynnissä") || text.includes("haku sulkeutunut");
+    }
+    """
+
+    try:
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(headless=True)
+            try:
+                page = await browser.new_page(user_agent=user_agent)
+                await page.goto(
+                    source_url,
+                    wait_until="domcontentloaded",
+                    timeout=timeout_ms,
+                )
+                await page.wait_for_function(status_probe, timeout=timeout_ms)
+                return await page.content()
+            finally:
+                await browser.close()
+    except PlaywrightTimeoutError as exc:
+        raise SourceStructureError(
+            "Sitra rendered page did not expose funding-call lifecycle markers before "
+            "the configured timeout. Treat this as a possible source-structure change."
+        ) from exc
+    except PlaywrightError as exc:
+        raise RuntimeError(
+            "Sitra browser rendering failed. Ensure the Playwright Chromium runtime "
+            "is installed for workers that enable SITRA."
+        ) from exc
+
+
 class SitraScanner:
     source_code = "SITRA"
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        html_renderer: SitraHtmlRenderer | None = None,
+    ) -> None:
         self._settings = settings
+        self._html_renderer = html_renderer
 
     async def scan(self) -> list[FundingCallCandidate]:
         source_url = str(self._settings.sitra_url)
@@ -132,8 +222,18 @@ class SitraScanner:
             response = await client.get(source_url)
             response.raise_for_status()
 
-        return parse_sitra_html(
+        async def render_html() -> str:
+            if self._html_renderer is not None:
+                return await self._html_renderer()
+            return await _render_sitra_html(
+                source_url,
+                user_agent=self._settings.user_agent,
+                timeout_seconds=self._settings.http_timeout_seconds,
+            )
+
+        return await _parse_sitra_with_render_fallback(
             response.text,
             source_url,
             timezone=self._settings.timezone,
+            render_html=render_html,
         )
