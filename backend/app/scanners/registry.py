@@ -1,7 +1,9 @@
 from collections.abc import Callable, Sequence
 
 from app.config import Settings
+from app.scanners.academy import AcademyScanner
 from app.scanners.base import FundingSourceAdapter
+from app.scanners.sitra import SitraScanner
 from app.scanners.stm import STMScanner
 
 ScannerFactory = Callable[[Settings], FundingSourceAdapter]
@@ -15,8 +17,18 @@ def _stm_factory(settings: Settings) -> FundingSourceAdapter:
     return STMScanner(settings)
 
 
+def _sitra_factory(settings: Settings) -> FundingSourceAdapter:
+    return SitraScanner(settings)
+
+
+def _academy_factory(settings: Settings) -> FundingSourceAdapter:
+    return AcademyScanner(settings)
+
+
 _SOURCE_FACTORIES: dict[str, ScannerFactory] = {
     "STM": _stm_factory,
+    "SITRA": _sitra_factory,
+    "ACADEMY": _academy_factory,
 }
 
 
