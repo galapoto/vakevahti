@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: corrected Sitra entity extraction and final combined multi-source/local quality rerun passed; final database-state inspection remains before PR #8 can leave draft.
+Status: Milestone 4 live source, multi-source, local quality, persistence, uniqueness and version-state gates passed.
 
 ## What was validated
 
@@ -67,6 +67,44 @@ The local quality gates then passed:
 - PostgreSQL integration tests included successful ingestion audit, failed-scan isolation, persistence idempotency and per-source concurrency serialization
 
 One Starlette `TestClient`/`httpx` deprecation warning remains. It does not affect Milestone 4 correctness and is tracked separately in GitHub issue #9 rather than expanding the source-adapter PR at the merge boundary.
+
+## Final PostgreSQL state inspection
+
+The final developer-database inspection passed after the corrected Sitra baseline and repeated combined scans.
+
+Current funding rows:
+
+- ACADEMY: 7
+- SITRA: 1
+- STM: 9
+- total current entities: 17
+
+Stored immutable versions:
+
+- ACADEMY: 7
+- SITRA: 1
+- STM: 9
+- total stored versions: 17
+
+The one-to-one relationship between current entities and versions at this point confirms that repeated UNCHANGED observations did not create unnecessary immutable history.
+
+The corrected Sitra row is:
+
+- title: `Tuottavuutta tekoälyllä – valmennusta julkiselle sektorille uudistumisen tueksi`
+- source URL: `https://asiointi.sitra.fi/`
+- deadline: `2026-09-15 09:00:00+00`
+- current version: 1
+- stored versions: 1
+
+The duplicate-identity query grouped by `(source_code, external_key)` returned zero rows.
+
+All source baselines exist and each source has a later `last_successful_scan_at` value:
+
+- ACADEMY baseline: `2026-08-30 15:50:18.557908+00`; last success: `2026-08-30 16:51:30.945899+00`
+- SITRA baseline: `2026-08-30 16:46:14.054322+00`; last success: `2026-08-30 16:51:30.77249+00`
+- STM baseline: `2026-08-30 15:40:21.329981+00`; last success: `2026-08-30 16:51:29.02993+00`
+
+Historical failed and pre-correction Sitra scan-audit records remain preserved by design. The final two combined worker executions already provide the six successful source-run outcomes needed for the release gate.
 
 ## Data Engineering lesson: validate against an independent authoritative representation
 
@@ -146,13 +184,38 @@ The final local suite passed all 28 tests but emitted one deprecation warning fr
 
 > The warning is a future compatibility signal, not a failure of the funding-source milestone. Changing the HTTP test-client stack would add unrelated dependency risk at the merge boundary. I kept the current quality gate green, created a dedicated follow-up issue, and will handle the migration in a focused change where compatibility and regressions can be evaluated independently.
 
-## Remaining Milestone 4 gate
+## Persistence lesson: current state, immutable history and uniqueness answer different questions
 
-Before PR #8 leaves draft:
+The final inspection showed 17 current funding records and exactly 17 stored versions. That does not happen automatically just because the current table has a uniqueness constraint. It is the combined result of source identity, change detection and version-writing rules.
 
-1. inspect current per-source funding counts and version counts
-2. confirm the duplicate-key query returns no rows
-3. inspect the current Sitra row and latest scan audits
-4. confirm no unexpected Sitra versions or duplicate entities were created after the source-scoped repair
-5. update PR #8 with the final database evidence
-6. mark ready and merge using the project's professional merge convention
+### Data Engineering interview question: Why is one stored version per current row meaningful after repeated scans?
+
+> Each source was scanned repeatedly, but unchanged observations did not create new historical versions. That proves the version table represents material state transitions rather than observation frequency. `last_seen_at` can move forward without polluting immutable change history.
+
+### Database interview question: If `(source_code, external_key)` is unique, why still run a duplicate inspection query?
+
+> A database uniqueness constraint protects the exact stored key, but an extractor could still generate two different keys for the same real-world entity. The duplicate-key query verifies the structural invariant, while live semantic inspection verifies that the identity function itself still represents the business entity correctly. They protect different failure modes.
+
+### Backend interview question: What is the difference between idempotency and version discipline?
+
+> Idempotency means repeating the same logical input does not produce unintended business changes. Version discipline is more specific: an unchanged observation must not append another immutable version. VakeVahti demonstrated both: the second combined run emitted only UNCHANGED outcomes, and the database still held one version per current entity.
+
+## Milestone 4 completion gate
+
+Milestone 4 is ready to leave draft because all required gates passed:
+
+1. deterministic Sitra parser and browser-fallback regression tests pass
+2. the semantic false positive was reproduced, understood and corrected
+3. the known-invalid Sitra development state was repaired without erasing audit history
+4. a fresh live Sitra baseline emits the correct funding entity
+5. the immediate Sitra repeat is UNCHANGED
+6. two complete `STM,SITRA,ACADEMY` runs are UNCHANGED across all three sources
+7. Ruff and strict mypy pass
+8. the full PostgreSQL pytest suite passes: 28 tests
+9. current source counts are ACADEMY 7, SITRA 1, STM 9
+10. version counts are ACADEMY 7, SITRA 1, STM 9
+11. the duplicate-key query returns zero rows
+12. all three source states have completed baselines and later successful scans
+13. the non-blocking TestClient deprecation is tracked separately as issue #9
+
+The next action is to mark PR #8 ready, perform the final PR/review-state check, and squash-merge it using the same milestone-style convention used for earlier VakeVahti merges.
