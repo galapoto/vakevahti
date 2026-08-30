@@ -20,6 +20,11 @@ pytestmark = [
     ),
 ]
 
+TRUNCATE_SQL = (
+    "TRUNCATE TABLE source_scan_runs, funding_call_versions, funding_calls, "
+    "source_states RESTART IDENTITY CASCADE"
+)
+
 
 class FakeScanner:
     source_code = "STM"
@@ -58,15 +63,14 @@ async def session_factory() -> AsyncIterator[async_sessionmaker[AsyncSession]]:
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async with engine.begin() as connection:
-        await connection.execute(
-            text(
-                "TRUNCATE TABLE source_scan_runs, funding_call_versions, funding_calls, "
-                "source_states RESTART IDENTITY CASCADE"
-            )
-        )
+        await connection.execute(text(TRUNCATE_SQL))
 
-    yield factory
-    await engine.dispose()
+    try:
+        yield factory
+    finally:
+        async with engine.begin() as connection:
+            await connection.execute(text(TRUNCATE_SQL))
+        await engine.dispose()
 
 
 async def test_successful_ingestion_is_audited(

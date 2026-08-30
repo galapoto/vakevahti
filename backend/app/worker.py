@@ -2,9 +2,12 @@ import argparse
 import asyncio
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
-from app.scanners.stm import STMScanner
+from app.scanners.base import FundingSourceAdapter
+from app.scanners.registry import build_scanners
 from app.services.ingestion import IngestionRunResult, ScanTrigger, run_source_ingestion
 
 logger = logging.getLogger(__name__)
@@ -23,34 +26,55 @@ def _log_result(result: IngestionRunResult) -> None:
     )
 
 
+async def _ingest_scanner(
+    scanner: FundingSourceAdapter,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> IngestionRunResult:
+    return await run_source_ingestion(
+        scanner,
+        session_factory,
+        trigger=ScanTrigger.SCHEDULED,
+    )
+
+
 async def run_once(settings: Settings) -> None:
-    """Run one scheduled-style STM ingestion and exit."""
+    """Run all configured funding sources once and exit.
 
-    engine = create_engine(settings)
-    session_factory = create_session_factory(engine)
-    scanner = STMScanner(settings)
-
-    try:
-        result = await run_source_ingestion(
-            scanner,
-            session_factory,
-            trigger=ScanTrigger.SCHEDULED,
-        )
-        _log_result(result)
-    finally:
-        await engine.dispose()
-
-
-async def run_loop(settings: Settings) -> None:
-    """Run the v1 single-replica interval worker.
-
-    Production platforms may instead invoke the same one-shot ingestion through
-    cron, a managed scheduler, Kubernetes CronJob, or the future Vaketomate scheduler.
+    Every configured source is attempted. Successful sources keep their committed
+    audit/persistence result even when another source fails. An ExceptionGroup is
+    raised after all attempts so an external scheduler can mark the invocation unhealthy.
     """
 
     engine = create_engine(settings)
     session_factory = create_session_factory(engine)
-    scanner = STMScanner(settings)
+    scanners = build_scanners(settings)
+    failures: list[Exception] = []
+
+    try:
+        for scanner in scanners:
+            try:
+                result = await _ingest_scanner(scanner, session_factory)
+                _log_result(result)
+            except Exception as exc:
+                logger.exception("Scheduled ingestion failed for source=%s", scanner.source_code)
+                failures.append(exc)
+    finally:
+        await engine.dispose()
+
+    if failures:
+        raise ExceptionGroup("One or more funding source ingestions failed.", failures)
+
+
+async def run_loop(settings: Settings) -> None:
+    """Run the v1 single-replica interval worker for all configured sources.
+
+    Production platforms may instead invoke one-shot ingestion through cron, a
+    managed scheduler, Kubernetes CronJob, or the future Vaketomate scheduler.
+    """
+
+    engine = create_engine(settings)
+    session_factory = create_session_factory(engine)
+    scanners = build_scanners(settings)
     interval_seconds = settings.scan_interval_minutes * 60
 
     try:
@@ -58,15 +82,15 @@ async def run_loop(settings: Settings) -> None:
             await asyncio.sleep(interval_seconds)
 
         while True:
-            try:
-                result = await run_source_ingestion(
-                    scanner,
-                    session_factory,
-                    trigger=ScanTrigger.SCHEDULED,
-                )
-                _log_result(result)
-            except Exception:
-                logger.exception("Scheduled STM ingestion failed; next interval will retry.")
+            for scanner in scanners:
+                try:
+                    result = await _ingest_scanner(scanner, session_factory)
+                    _log_result(result)
+                except Exception:
+                    logger.exception(
+                        "Scheduled ingestion failed for source=%s; next interval will retry.",
+                        scanner.source_code,
+                    )
 
             await asyncio.sleep(interval_seconds)
     finally:
@@ -88,7 +112,7 @@ def main() -> None:
         nargs="?",
         choices=["once", "loop"],
         default="loop",
-        help="once = run one ingestion and exit; loop = repeat at SCAN_INTERVAL_MINUTES",
+        help="once = ingest configured sources once; loop = repeat at SCAN_INTERVAL_MINUTES",
     )
     args = parser.parse_args()
 

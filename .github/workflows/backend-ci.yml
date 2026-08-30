@@ -33,6 +33,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+asyncpg://vakevahti:vakevahti@127.0.0.1:5432/vakevahti_test
       TEST_DATABASE_URL: postgresql+asyncpg://vakevahti:vakevahti@127.0.0.1:5432/vakevahti_test
+      ALLOW_TEST_DATABASE_REUSE: "true"
 
     defaults:
       run:

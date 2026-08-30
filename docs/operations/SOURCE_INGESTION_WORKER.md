@@ -1,6 +1,6 @@
 # Source Ingestion Worker and Scheduling
 
-Status: Milestone 3 operational baseline
+Status: Milestone 4 multi-source operational baseline
 
 ## Purpose
 
@@ -46,7 +46,40 @@ Persisted commands require PostgreSQL and applied Alembic migrations.
 
 `SCAN_RUN_ON_STARTUP=true` means loop mode starts with an immediate scan. If false, the worker waits one interval before the first run.
 
-The source URL and database credentials remain runtime configuration, not source-code secrets.
+`ENABLED_SOURCES` selects registered adapters such as `STM,SITRA,ACADEMY`. Registration and runtime enablement remain separate concerns.
+
+The source URLs and database credentials remain runtime configuration, not source-code secrets.
+
+## Sitra browser runtime
+
+Sitra's public funding service is implemented with Microsoft Power Pages. As observed on 2026-08-30, a normal HTTP GET of `https://asiointi.sitra.fi/` can return the application shell without the funding-call lifecycle cards. The Sitra adapter therefore follows this transport strategy:
+
+1. request the official public page with normal HTTP first
+2. parse immediately if the lifecycle content is present
+3. if the HTTP representation contains no visible lifecycle markers, render the same official page with headless Chromium
+4. feed the rendered HTML through the same fail-loud Sitra parser
+
+Browser rendering is a source-specific transport fallback. It does not change the normalized `FundingCallCandidate` contract, and it is not used to bypass authentication, anti-bot controls or access restrictions.
+
+The Python Playwright package is installed with normal backend dependencies. A worker environment that enables `SITRA` must also install the Chromium runtime.
+
+Linux/macOS development environment:
+
+```bash
+./.venv/bin/playwright install chromium
+```
+
+Windows development environment:
+
+```powershell
+.\.venv\Scripts\playwright.exe install chromium
+```
+
+The host/container must also provide Chromium's supported operating-system libraries. Provision those through the approved machine image, package-management or container-build process rather than weakening workstation security controls.
+
+Ordinary CI does not contact Sitra or launch a browser. The browser fallback is tested with an injected renderer so parser/orchestration behavior remains deterministic and external availability cannot make CI flaky.
+
+If Chromium is missing, rendering times out, or the rendered lifecycle structure is no longer recognized, the Sitra scan fails visibly. Existing persisted funding state is not converted into an empty successful scan.
 
 ## Deployment recommendation
 
