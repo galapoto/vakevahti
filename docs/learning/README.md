@@ -10,5 +10,6 @@ Engineering lessons and interview preparation are written while the system is bu
 - `sitra-power-pages-render-fallback.md`: HTTP-vs-rendered transport boundary, Playwright fallback, security and operational interview lessons
 - `sitra-semantic-entity-validation.md`: live false-positive root cause, semantic entity association, data-quality correction strategy and interview Q&A
 - `sitra-live-semantic-revalidation.md`: corrected live Sitra proof, timezone interpretation, source-scoped data repair, semantic health and identity trade-off interview Q&A
+- `milestone-5-read-api-source-health.md`: persisted read path, API contracts, pagination, source-health semantics, dependency injection and backend/data/system-design interview Q&A
 
 New milestone-specific records should be added here and later consolidated into the project-wide interview/training package.
