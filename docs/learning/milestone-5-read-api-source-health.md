@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: implementation and Backend CI validation complete; live Linux read validation remains before merge.
+Status: implementation, CI and live Linux read validation complete; ready to merge.
 
 ## Why this milestone comes after multi-source ingestion
 
@@ -165,6 +165,44 @@ Coverage includes:
 
 > A unit test could prove a function builds the expected objects, but the failure surface here includes FastAPI validation, dependency injection, SQLAlchemy queries, PostgreSQL behavior and Pydantic serialization. The integration test exercises the actual HTTP contract over the actual database boundary.
 
+## Live Linux validation
+
+The final developer-machine validation ran against the populated PostgreSQL database created by the completed multi-source ingestion milestone.
+
+Local quality gates on the correct `feature/read-api-source-health` branch:
+
+- Ruff: passed
+- strict mypy: passed across 29 source files
+- pytest: 30/30 passed
+- two new PostgreSQL API integration tests passed
+
+The real running FastAPI application then returned:
+
+- total persisted funding calls: 17
+- STM: 9
+- SITRA: 1
+- ACADEMY: 7
+
+The live Sitra list response exposed the corrected individual opportunity, `Tuottavuutta tekoälyllä – valmennusta julkiselle sektorille uudistumisen tueksi`, with `current_version=1` and the normalized UTC deadline `2026-09-15T09:00:00Z`. It did not emit the earlier invalid `Rahoitushaut` section heading.
+
+The live `/api/sources/health` response reported all three configured sources as `HEALTHY`, with matching current call counts and latest successful scheduled scan audits:
+
+- STM: 9 calls, latest scan `SUCCEEDED`, 9 unchanged
+- SITRA: 1 call, latest scan `SUCCEEDED`, 1 unchanged
+- ACADEMY: 7 calls, latest scan `SUCCEEDED`, 7 unchanged
+
+The developer also proved that the old 28-test result had been caused by running the previous feature branch. Once the correct remote branch was tracked locally, the suite collected 30 tests and the persisted API route existed as expected.
+
+The separate detail/pagination behaviors do not require another ceremonial live check because they are already exercised end-to-end through ASGI against PostgreSQL in `test_funding_list_filters_paginates_and_reads_detail`: lowercase source filtering, two adjacent pages, deterministic ordering, detail serialization, 404 behavior, and the 100-record request bound are all part of the green 30-test suite. The live database check adds the complementary proof that those routes are wired to the real 17-record application state.
+
+### Git/DevOps interview question: What did the earlier 404 reveal about branch state?
+
+> The API returned 404 because I had not actually switched to the Milestone 5 branch. `git switch` failed because the local branch did not exist, then `git pull origin feature/read-api-source-health` attempted to integrate that remote branch into the still-current Milestone 4 branch and `--ff-only` correctly refused. The old 28-test collection count was another clue. I fixed it by explicitly creating a local tracking branch from `origin/feature/read-api-source-health`, after which the expected 30 tests and persisted routes were present.
+
+### DevOps interview question: Why was `--ff-only` useful in that incident?
+
+> It prevented an accidental merge between two feature branches. Instead of silently creating an unintended history edge, Git failed loudly. That is exactly the behavior I want for disciplined milestone branches.
+
 ## Security/privacy lesson: diagnostics should be bounded
 
 The health endpoint exposes `error_type` but not the full persisted `error_message`. Full exception messages can contain URLs, infrastructure details or unexpected upstream content.
@@ -177,4 +215,4 @@ The health endpoint exposes `error_type` but not the full persisted `error_messa
 
 A concise interview narrative for this milestone:
 
-> After building multi-source ingestion, I separated the serving path from the source-facing worker. I added PostgreSQL-backed read APIs with typed response contracts, bounded deterministic pagination, detail reads and an operational source-health read model. Health is derived from persisted scan audits without inventing freshness SLAs. I used an injectable async session boundary and integration-tested the HTTP contract against PostgreSQL rather than mocking the database. CI caught an executable-default dependency pattern, so I migrated the routes to FastAPI's `Annotated` dependency style instead of suppressing the lint rule.
+> After building multi-source ingestion, I separated the serving path from the source-facing worker. I added PostgreSQL-backed read APIs with typed response contracts, bounded deterministic pagination, detail reads and an operational source-health read model. Health is derived from persisted scan audits without inventing freshness SLAs. I used an injectable async session boundary and integration-tested the HTTP contract against PostgreSQL rather than mocking the database. CI caught an executable-default dependency pattern, so I migrated the routes to FastAPI's `Annotated` dependency style instead of suppressing the lint rule. I then validated the running API against the real 17-record development database and confirmed that the serving layer reflected the corrected multi-source state exactly.
