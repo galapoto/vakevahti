@@ -149,6 +149,7 @@ async def test_funding_list_filters_paginates_and_reads_detail(
     assert all_calls.json()["total"] == 3
 
     funding_call_id = first_payload["items"][0]["id"]
+    retired_call_id = second_payload["items"][0]["id"]
     detail = await client.get(f"/api/funding-calls/{funding_call_id}")
     assert detail.status_code == 200
     detail_payload = detail.json()
@@ -163,6 +164,55 @@ async def test_funding_list_filters_paginates_and_reads_detail(
 
     invalid_limit = await client.get("/api/funding-calls", params={"limit": 101})
     assert invalid_limit.status_code == 422
+
+    # A later authoritative source snapshot contains only the sooner call. The
+    # disappeared call remains stored historically but must leave the current API.
+    later_observation = datetime(2026, 8, 30, 11, 0, tzinfo=UTC)
+    still_current = make_candidate(
+        source_code="STM",
+        external_key="stm-sooner",
+        title="STM sooner deadline",
+        deadline=datetime(2026, 9, 9, 9, 0, tzinfo=UTC),
+    )
+    async with session_factory() as session:
+        async with session.begin():
+            await persist_candidates(
+                session,
+                [still_current],
+                observed_at=later_observation,
+            )
+
+    after_retirement = await client.get(
+        "/api/funding-calls",
+        params={"source_code": "STM", "limit": 100},
+    )
+    assert after_retirement.status_code == 200
+    retirement_payload = after_retirement.json()
+    assert retirement_payload["total"] == 1
+    assert [item["title"] for item in retirement_payload["items"]] == [
+        "STM sooner deadline"
+    ]
+
+    retired_detail = await client.get(f"/api/funding-calls/{retired_call_id}")
+    assert retired_detail.status_code == 404
+
+    # A recognized successful source snapshot may legitimately contain no current
+    # opportunities. Advancing the source watermark must then yield an empty API set.
+    async with session_factory() as session:
+        async with session.begin():
+            await persist_candidates(
+                session,
+                [],
+                source_code="STM",
+                observed_at=later_observation + timedelta(hours=1),
+            )
+
+    empty_current = await client.get(
+        "/api/funding-calls",
+        params={"source_code": "STM", "limit": 100},
+    )
+    assert empty_current.status_code == 200
+    assert empty_current.json()["total"] == 0
 
 
 async def test_source_health_reports_success_failure_running_and_never_scanned(
