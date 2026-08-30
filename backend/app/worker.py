@@ -2,6 +2,8 @@ import argparse
 import asyncio
 import logging
 
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
 from app.scanners.base import FundingSourceAdapter
@@ -24,19 +26,13 @@ def _log_result(result: IngestionRunResult) -> None:
     )
 
 
-async def _run_scanner(
+async def _ingest_scanner(
     scanner: FundingSourceAdapter,
-    session_factory: object,
+    session_factory: async_sessionmaker[AsyncSession],
 ) -> IngestionRunResult:
-    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
-    if not isinstance(session_factory, async_sessionmaker):
-        raise TypeError("session_factory must be an async_sessionmaker")
-
-    typed_factory: async_sessionmaker[AsyncSession] = session_factory
     return await run_source_ingestion(
         scanner,
-        typed_factory,
+        session_factory,
         trigger=ScanTrigger.SCHEDULED,
     )
 
@@ -44,9 +40,9 @@ async def _run_scanner(
 async def run_once(settings: Settings) -> None:
     """Run all configured funding sources once and exit.
 
-    Every configured source is attempted. If one or more fail, successful sources
-    still retain their own committed audit/persistence outcome and the process exits
-    with an ExceptionGroup so an external scheduler can mark the run unhealthy.
+    Every configured source is attempted. Successful sources keep their committed
+    audit/persistence result even when another source fails. An ExceptionGroup is
+    raised after all attempts so an external scheduler can mark the invocation unhealthy.
     """
 
     engine = create_engine(settings)
@@ -57,11 +53,7 @@ async def run_once(settings: Settings) -> None:
     try:
         for scanner in scanners:
             try:
-                result = await run_source_ingestion(
-                    scanner,
-                    session_factory,
-                    trigger=ScanTrigger.SCHEDULED,
-                )
+                result = await _ingest_scanner(scanner, session_factory)
                 _log_result(result)
             except Exception as exc:
                 logger.exception("Scheduled ingestion failed for source=%s", scanner.source_code)
@@ -92,11 +84,7 @@ async def run_loop(settings: Settings) -> None:
         while True:
             for scanner in scanners:
                 try:
-                    result = await run_source_ingestion(
-                        scanner,
-                        session_factory,
-                        trigger=ScanTrigger.SCHEDULED,
-                    )
+                    result = await _ingest_scanner(scanner, session_factory)
                     _log_result(result)
                 except Exception:
                     logger.exception(
