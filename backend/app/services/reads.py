@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.db.models import FundingCallRecord, SourceScanRun, SourceState
 from app.services.ingestion import ScanRunStatus
@@ -49,7 +50,7 @@ class SourceHealthSnapshot:
     latest_error_type: str | None
 
 
-def _current_membership_condition() -> object:
+def _current_membership_condition() -> ColumnElement[bool]:
     """Return the invariant defining membership in a source's latest good snapshot."""
 
     return FundingCallRecord.last_seen_at == SourceState.last_successful_scan_at
@@ -64,7 +65,7 @@ async def list_funding_calls(
 ) -> FundingCallPage:
     """Return a stable bounded page from each source's latest successful snapshot."""
 
-    filters = [_current_membership_condition()]
+    filters: list[ColumnElement[bool]] = [_current_membership_condition()]
     normalized_source = source_code.strip().upper() if source_code else None
     if normalized_source:
         filters.append(FundingCallRecord.source_code == normalized_source)
