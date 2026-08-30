@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: implementation slice in validation.
+Status: implementation and Backend CI validation complete; live Linux read validation remains before merge.
 
 ## Why this milestone comes after multi-source ingestion
 
@@ -121,6 +121,26 @@ Production disposes only the engine it owns.
 
 > Injection makes resource ownership explicit. The application can be tested against a real isolated database without mutating hidden globals, and production still manages its own connection pool lifecycle. It also makes future composition easier if another host, such as Vaketomate, needs to instantiate the application boundary differently.
 
+## CI lesson: framework idioms still have to satisfy static analysis
+
+The first Milestone 5 CI run stopped at Ruff rule `B008`. The initial routes used FastAPI's older-looking dependency style:
+
+`session: AsyncSession = Depends(get_db_session)`
+
+That creates a function call in a default argument. Rather than disabling the lint rule, the routes were rewritten with `typing.Annotated` aliases, for example:
+
+`SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]`
+
+Backend CI #66 then passed Ruff, strict mypy, Alembic and PostgreSQL pytest.
+
+### Backend interview question: Why not add `# noqa: B008` for FastAPI dependencies?
+
+> A lint suppression would make the current code pass without improving the contract. FastAPI supports `Annotated`, which cleanly separates the Python type from dependency metadata and avoids an executable default. I chose the framework-supported representation that satisfies both FastAPI and the project's static-analysis rules instead of creating an exception we would need to maintain.
+
+### Python technical question: What is the underlying concern with function calls in default arguments?
+
+> Python evaluates default argument expressions when the function is defined, not each time it is called. Many frameworks intentionally use sentinel objects in defaults, but general executable defaults can create surprising shared state or side effects. `Annotated` lets us express dependency metadata without relying on that pattern in the route signature.
+
 ## Testing strategy
 
 The API integration tests use ASGI transport and the real PostgreSQL test database. They do not mock the read service.
@@ -157,4 +177,4 @@ The health endpoint exposes `error_type` but not the full persisted `error_messa
 
 A concise interview narrative for this milestone:
 
-> After building multi-source ingestion, I separated the serving path from the source-facing worker. I added PostgreSQL-backed read APIs with typed response contracts, bounded deterministic pagination, detail reads and an operational source-health read model. Health is derived from persisted scan audits without inventing freshness SLAs. I used an injectable async session boundary and integration-tested the HTTP contract against PostgreSQL rather than mocking the database.
+> After building multi-source ingestion, I separated the serving path from the source-facing worker. I added PostgreSQL-backed read APIs with typed response contracts, bounded deterministic pagination, detail reads and an operational source-health read model. Health is derived from persisted scan audits without inventing freshness SLAs. I used an injectable async session boundary and integration-tested the HTTP contract against PostgreSQL rather than mocking the database. CI caught an executable-default dependency pattern, so I migrated the routes to FastAPI's `Annotated` dependency style instead of suppressing the lint rule.
