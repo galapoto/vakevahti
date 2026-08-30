@@ -1,8 +1,8 @@
-"""Self-contained development dashboard served by FastAPI.
+"""Self-contained operational dashboard served by FastAPI.
 
-This is intentionally dependency-light so it can run on the managed workplace
-machine without Node.js or a separate frontend toolchain. It is a mentor/demo
-surface, not the final employee-facing UI.
+The dashboard intentionally stays dependency-light for the current managed workplace
+machine. It reads only VakeVahti's persisted API contracts; loading the page never
+triggers a funding-source scan.
 """
 
 DASHBOARD_HTML = r"""<!doctype html>
@@ -10,20 +10,29 @@ DASHBOARD_HTML = r"""<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>VakeVahti | Kehitysdemo</title>
+  <title>VakeVahti | Rahoitushakujen tilannekuva</title>
   <style>
     :root {
-      --bg: #f5f7f8;
+      color-scheme: light;
+      --bg: #f4f6f8;
       --surface: #ffffff;
+      --surface-soft: #f8fafb;
       --text: #17212b;
       --muted: #667085;
       --border: #dfe5e8;
       --accent: #0f766e;
-      --accent-soft: #e8f5f3;
-      --good: #16845b;
+      --accent-strong: #0b5d57;
+      --accent-soft: #e7f5f2;
+      --good: #16794f;
       --good-soft: #eaf7f1;
+      --warning: #a15c00;
+      --warning-soft: #fff6e5;
       --danger: #b42318;
-      --shadow: 0 8px 24px rgba(16, 24, 40, .06);
+      --danger-soft: #fff0ee;
+      --neutral-soft: #eef2f5;
+      --shadow: 0 10px 30px rgba(16, 24, 40, .06);
+      --radius-lg: 18px;
+      --radius-md: 13px;
     }
 
     * { box-sizing: border-box; }
@@ -36,405 +45,478 @@ DASHBOARD_HTML = r"""<!doctype html>
       background: var(--bg);
     }
 
-    button, a { font: inherit; }
+    button, select, a { font: inherit; }
 
     .shell {
-      width: min(980px, calc(100% - 32px));
+      width: min(1180px, calc(100% - 32px));
       margin: 0 auto;
-      padding: 28px 0 48px;
+      padding: 24px 0 52px;
     }
 
     .topbar {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 34px;
+      gap: 18px;
+      margin-bottom: 28px;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 11px;
+      gap: 12px;
     }
 
     .logo {
-      width: 38px;
-      height: 38px;
+      width: 42px;
+      height: 42px;
       display: grid;
       place-items: center;
-      border-radius: 10px;
+      border-radius: 12px;
       background: var(--accent);
-      color: white;
-      font-weight: 800;
+      color: #fff;
       font-size: 13px;
+      font-weight: 850;
+      letter-spacing: .02em;
+      box-shadow: 0 7px 16px rgba(15, 118, 110, .2);
     }
 
     .brand strong { display: block; font-size: 17px; }
-    .brand span { color: var(--muted); font-size: 12px; }
+    .brand span { display: block; margin-top: 1px; color: var(--muted); font-size: 12px; }
 
-    .demo-tag {
-      padding: 6px 10px;
+    .system-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 10px;
+      border: 1px solid #cfe8e3;
       border-radius: 999px;
       background: var(--accent-soft);
+      color: var(--accent-strong);
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .system-chip::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 28px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      margin: 0 0 7px;
       color: var(--accent);
       font-size: 12px;
-      font-weight: 700;
-    }
-
-    .intro {
-      text-align: center;
-      margin: 0 auto 28px;
-      max-width: 700px;
-    }
-
-    .intro h1 {
-      margin: 0 0 10px;
-      font-size: clamp(28px, 5vw, 42px);
-      letter-spacing: -.035em;
-      line-height: 1.08;
-    }
-
-    .intro p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.6;
-      font-size: 15px;
-    }
-
-    .flow {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .step {
-      position: relative;
-      padding: 18px;
-      border-radius: 14px;
-      box-shadow: var(--shadow);
-      min-height: 132px;
-      border: 1px solid var(--step-border);
-      background: var(--step-bg);
-    }
-
-    .step-source {
-      --step-color: #1d4ed8;
-      --step-bg: #eff6ff;
-      --step-border: #bfdbfe;
-    }
-
-    .step-process {
-      --step-color: #b45309;
-      --step-bg: #fffbeb;
-      --step-border: #fde68a;
-    }
-
-    .step-result {
-      --step-color: #047857;
-      --step-bg: #ecfdf5;
-      --step-border: #a7f3d0;
-    }
-
-    .step-number {
-      width: 28px;
-      height: 28px;
-      display: grid;
-      place-items: center;
-      border-radius: 50%;
-      color: white;
-      background: var(--step-color);
-      font-weight: 800;
-      font-size: 12px;
-      margin-bottom: 12px;
-    }
-
-    .step h2 {
-      margin: 0 0 7px;
-      color: var(--step-color);
-      font-size: 17px;
-      font-weight: 800;
-    }
-
-    .step p {
-      margin: 0;
-      color: #475467;
-      font-size: 13px;
-      line-height: 1.55;
-    }
-
-    .step strong { color: var(--step-color); }
-
-    .count {
-      color: var(--step-color);
       font-weight: 850;
-      font-size: 26px;
-      line-height: 1;
+      letter-spacing: .08em;
+      text-transform: uppercase;
     }
 
-    .action-card,
-    .results-card {
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-    }
-
-    .action-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-      padding: 20px;
-      margin-bottom: 18px;
-    }
-
-    .action-card h2 {
-      margin: 0 0 5px;
-      font-size: 18px;
-    }
-
-    .action-card p {
+    .hero h1 {
       margin: 0;
-      max-width: 690px;
+      max-width: 760px;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.05;
+      letter-spacing: -.04em;
+    }
+
+    .hero p {
+      margin: 12px 0 0;
+      max-width: 780px;
       color: var(--muted);
-      font-size: 13px;
-      line-height: 1.55;
+      font-size: 14px;
+      line-height: 1.65;
     }
 
-    .primary-button {
-      appearance: none;
-      border: 0;
-      border-radius: 10px;
-      padding: 12px 18px;
+    .refresh-button {
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px 14px;
+      color: var(--text);
+      background: var(--surface);
       font-weight: 750;
-      color: white;
-      background: var(--accent);
       cursor: pointer;
-      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(16, 24, 40, .04);
     }
 
-    .primary-button:hover { filter: brightness(.96); }
-    .primary-button:disabled { opacity: .55; cursor: wait; }
+    .refresh-button:hover { border-color: #bac6cc; }
+    .refresh-button:disabled { opacity: .55; cursor: wait; }
 
-    .status {
+    .status-banner {
       display: none;
-      align-items: center;
-      gap: 8px;
-      padding: 11px 13px;
-      margin-bottom: 16px;
-      border-radius: 10px;
-      background: var(--good-soft);
-      color: var(--good);
+      align-items: flex-start;
+      gap: 9px;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      border: 1px solid #f1c7c2;
+      border-radius: 11px;
+      background: var(--danger-soft);
+      color: var(--danger);
       font-size: 13px;
-      font-weight: 650;
+      line-height: 1.5;
     }
 
-    .status.visible { display: flex; }
-    .status.error { background: #fff0ee; color: var(--danger); }
+    .status-banner.visible { display: flex; }
 
     .status-dot {
       width: 8px;
       height: 8px;
+      margin-top: 5px;
+      flex: 0 0 auto;
       border-radius: 50%;
       background: currentColor;
-      flex: 0 0 auto;
     }
 
-    .results-card { padding: 22px; }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
 
-    .results-head {
+    .kpi {
+      min-height: 118px;
+      padding: 17px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .kpi-label {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .kpi-value {
+      display: block;
+      margin-top: 11px;
+      font-size: 29px;
+      font-weight: 850;
+      line-height: 1;
+      letter-spacing: -.035em;
+    }
+
+    .kpi-detail {
+      display: block;
+      margin-top: 9px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .section { margin-top: 24px; }
+
+    .section-head {
       display: flex;
       align-items: end;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
-    .results-head h2 { margin: 0 0 4px; font-size: 19px; }
-    .results-head p { margin: 0; color: var(--muted); font-size: 13px; }
+    .section-head h2 {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -.02em;
+    }
 
-    .empty {
-      padding: 34px 20px;
-      text-align: center;
+    .section-head p {
+      margin: 5px 0 0;
       color: var(--muted);
-      border: 1px dashed var(--border);
-      border-radius: 12px;
-      font-size: 14px;
+      font-size: 13px;
+      line-height: 1.45;
     }
 
-    .calls { display: grid; gap: 8px; }
+    .source-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
 
-    .call {
-      --row-bg: #ffffff;
+    .source-card {
+      padding: 17px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .source-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .source-name { font-size: 16px; font-weight: 850; }
+
+    .health-badge {
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 850;
+      letter-spacing: .03em;
+    }
+
+    .health-healthy { color: var(--good); background: var(--good-soft); }
+    .health-failing { color: var(--danger); background: var(--danger-soft); }
+    .health-running { color: var(--warning); background: var(--warning-soft); }
+    .health-never_scanned { color: #53606b; background: var(--neutral-soft); }
+
+    .source-count {
+      font-size: 25px;
+      font-weight: 850;
+      letter-spacing: -.03em;
+    }
+
+    .source-count span {
+      margin-left: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: 0;
+    }
+
+    .fact-list { display: grid; gap: 8px; margin-top: 15px; }
+
+    .fact {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #edf1f3;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .fact strong { color: #344054; font-weight: 750; text-align: right; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+      background: var(--surface);
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .toolbar label { color: var(--muted); font-size: 12px; font-weight: 750; }
+
+    .source-select {
+      min-width: 170px;
+      padding: 8px 32px 8px 10px;
+      border: 1px solid #cbd5dc;
+      border-radius: 9px;
+      color: var(--text);
+      background: white;
+    }
+
+    .list-count { color: var(--muted); font-size: 12px; }
+
+    .opportunity-panel {
       overflow: hidden;
       border: 1px solid var(--border);
-      border-radius: 11px;
-      background: var(--row-bg);
-      transition: border-color .14s ease, box-shadow .14s ease;
+      border-top: 0;
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      background: var(--surface);
+      box-shadow: var(--shadow);
     }
 
-    .call:nth-child(even) { --row-bg: #f3f7fb; }
-
-    .call:hover {
-      border-color: #b7c8d8;
-      box-shadow: 0 4px 14px rgba(16, 24, 40, .05);
+    .empty-state, .loading-state {
+      padding: 42px 22px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
     }
 
-    .call-toggle {
+    .opportunity-list { display: grid; }
+    .opportunity { border-top: 1px solid #edf1f3; }
+    .opportunity:first-child { border-top: 0; }
+
+    .opportunity-toggle {
       width: 100%;
       display: grid;
-      grid-template-columns: 30px 1fr auto auto;
+      grid-template-columns: 94px minmax(0, 1fr) 170px 28px;
+      gap: 14px;
       align-items: center;
-      gap: 11px;
-      padding: 12px 13px;
+      padding: 15px 17px;
       border: 0;
       color: inherit;
-      background: var(--row-bg);
+      background: #fff;
       text-align: left;
       cursor: pointer;
     }
 
-    .call-toggle:hover { filter: brightness(.985); }
-    .call-toggle:focus-visible { outline: 3px solid rgba(15, 118, 110, .22); outline-offset: -3px; }
+    .opportunity-toggle:hover { background: #fbfcfd; }
+    .opportunity-toggle:focus-visible { outline: 3px solid rgba(15, 118, 110, .22); outline-offset: -3px; }
 
-    .call-index {
-      width: 28px;
-      height: 28px;
-      display: grid;
-      place-items: center;
-      border-radius: 8px;
-      background: #e8eef3;
-      color: #536476;
-      font-size: 11px;
-      font-weight: 800;
+    .source-pill {
+      justify-self: start;
+      padding: 5px 8px;
+      border-radius: 999px;
+      color: var(--accent-strong);
+      background: var(--accent-soft);
+      font-size: 10px;
+      font-weight: 850;
     }
 
-    .call-title {
+    .opportunity-title {
       min-width: 0;
       font-size: 13px;
-      font-weight: 700;
+      font-weight: 750;
       line-height: 1.45;
     }
 
-    .badge {
-      padding: 5px 8px;
-      border-radius: 999px;
-      background: var(--good-soft);
-      color: var(--good);
+    .deadline-block { text-align: right; }
+
+    .deadline-label {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--muted);
       font-size: 10px;
-      font-weight: 800;
-      white-space: nowrap;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .04em;
     }
 
+    .deadline-value { display: block; color: #344054; font-size: 12px; font-weight: 750; }
+    .deadline-soon .deadline-value { color: var(--warning); }
+    .deadline-past .deadline-value { color: var(--danger); }
+
     .chevron {
+      justify-self: end;
       color: #667085;
       font-size: 20px;
       line-height: 1;
       transition: transform .16s ease;
     }
 
-    .call-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+    .opportunity-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
 
-    .call-details {
-      padding: 15px 17px 17px 58px;
-      border-top: 1px solid var(--border);
-      background: rgba(255, 255, 255, .72);
+    .opportunity-details {
+      padding: 0 17px 18px 125px;
+      background: var(--surface-soft);
+      border-top: 1px solid #edf1f3;
     }
+
+    .details-loading { padding: 17px 0 0; color: var(--muted); font-size: 12px; }
 
     .detail-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 14px;
-      margin-bottom: 13px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding-top: 16px;
+    }
+
+    .detail-box {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid #e3e8eb;
+      border-radius: 10px;
+      background: #fff;
     }
 
     .detail-label {
       display: block;
-      margin-bottom: 4px;
-      color: #667085;
+      margin-bottom: 5px;
+      color: var(--muted);
       font-size: 10px;
       font-weight: 800;
-      letter-spacing: .06em;
+      letter-spacing: .05em;
       text-transform: uppercase;
     }
 
     .detail-value {
       margin: 0;
       color: #344054;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
     }
 
-    .summary-box {
-      padding: 12px 13px;
+    .description-box {
+      margin-top: 12px;
+      padding: 13px;
+      border: 1px solid #e3e8eb;
       border-radius: 10px;
-      background: #f8fafc;
-      border: 1px solid #e6ebef;
+      background: #fff;
     }
 
     .source-link {
       display: inline-flex;
+      align-items: center;
       margin-top: 12px;
-      padding: 7px 10px;
+      padding: 8px 10px;
       border: 1px solid #cbd5dc;
       border-radius: 8px;
-      color: var(--accent);
-      background: white;
+      color: var(--accent-strong);
+      background: #fff;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 750;
       text-decoration: none;
     }
 
-    .source-link:hover { background: #f7fbfa; }
+    .source-link:hover { background: #f3faf8; }
 
-    .more-button {
-      display: none;
-      margin: 14px auto 0;
-      padding: 9px 14px;
-      border-radius: 9px;
-      color: var(--accent);
-      background: transparent;
-      border: 1px solid var(--border);
-      cursor: pointer;
-      font-weight: 700;
-    }
-
-    .more-button.visible { display: block; }
-
-    details.technical-details {
-      margin-top: 16px;
-      border-top: 1px solid var(--border);
-      padding-top: 14px;
+    .footnote {
+      margin-top: 18px;
       color: var(--muted);
-      font-size: 12px;
+      font-size: 11px;
+      line-height: 1.55;
     }
 
-    details.technical-details summary {
-      color: var(--text);
-      cursor: pointer;
-      font-weight: 650;
-    }
-
-    .technical { margin-top: 10px; line-height: 1.7; }
-
-    code {
-      padding: 2px 5px;
-      border-radius: 5px;
-      background: #f0f3f5;
-      color: #344054;
-    }
-
-    @media (max-width: 720px) {
-      .flow { grid-template-columns: 1fr; }
-      .action-card { align-items: stretch; flex-direction: column; }
-      .call-toggle { grid-template-columns: 30px 1fr auto; }
-      .badge { grid-column: 2; justify-self: start; }
+    @media (max-width: 900px) {
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .source-grid { grid-template-columns: 1fr; }
+      .opportunity-toggle { grid-template-columns: 76px minmax(0, 1fr) 28px; }
+      .deadline-block { grid-column: 2; grid-row: 2; text-align: left; }
       .chevron { grid-column: 3; grid-row: 1 / span 2; }
-      .call-details { padding-left: 17px; }
-      .detail-grid { grid-template-columns: 1fr; }
+      .opportunity-details { padding-left: 17px; }
+      .detail-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .shell { width: min(100% - 20px, 1180px); padding-top: 14px; }
       .topbar { align-items: flex-start; }
+      .system-chip { display: none; }
+      .hero { grid-template-columns: 1fr; gap: 15px; }
+      .refresh-button { justify-self: start; }
+      .kpis { grid-template-columns: 1fr; }
+      .toolbar { align-items: stretch; flex-direction: column; }
+      .toolbar-left { align-items: stretch; flex-direction: column; }
+      .source-select { width: 100%; }
+      .opportunity-toggle { grid-template-columns: 1fr 28px; gap: 8px 12px; }
+      .source-pill { grid-column: 1; }
+      .opportunity-title { grid-column: 1; }
+      .deadline-block { grid-column: 1; grid-row: auto; }
+      .chevron { grid-column: 2; grid-row: 1 / span 3; }
+      .detail-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -442,286 +524,400 @@ DASHBOARD_HTML = r"""<!doctype html>
   <main class="shell">
     <header class="topbar">
       <div class="brand">
-        <div class="logo">VV</div>
+        <div class="logo" aria-hidden="true">VV</div>
         <div>
           <strong>VakeVahti</strong>
           <span>Rahoitushakujen seuranta</span>
         </div>
       </div>
-      <div class="demo-tag">Kehitysdemo</div>
+      <div class="system-chip">Tallennettu tilannekuva</div>
     </header>
 
-    <section class="intro">
-      <h1>Näin VakeVahti toimii</h1>
-      <p>
-        Valmiissa käytössä VakeVahti tarkistaa rahoituslähteet automaattisesti ajastuksen mukaan.
-        Tässä kehitysdemossa nykyinen STM-adapteri voidaan käynnistää käsin.
-      </p>
-    </section>
-
-    <section class="flow" aria-label="VakeVahdin toimintavaiheet">
-      <article class="step step-source">
-        <div class="step-number">1</div>
-        <h2>Seurattava lähde</h2>
-        <p><strong>Nykyinen toteutus: STM</strong><br>stm.fi:n valtionavustushaut</p>
-      </article>
-      <article class="step step-process">
-        <div class="step-number">2</div>
-        <h2>Automaattinen käsittely</h2>
-        <p>VakeVahti hakee sivun, tunnistaa haut ja validoi tiedot.</p>
-      </article>
-      <article class="step step-result">
-        <div class="step-number">3</div>
-        <h2>Tulos</h2>
-        <p><span class="count" id="call-count">–</span><br><span id="count-label">rahoitushakua löydetty</span></p>
-      </article>
-    </section>
-
-    <section class="action-card">
+    <section class="hero" aria-labelledby="page-title">
       <div>
-        <h2>Manuaalinen testihaku</h2>
+        <p class="eyebrow">Operatiivinen näkymä</p>
+        <h1 id="page-title">Rahoitushakujen tilannekuva</h1>
         <p>
-          Painike on demo- ja ylläpitokäyttöä varten. Varsinainen seuranta rakennetaan
-          ajastetuksi, jolloin käyttäjän ei tarvitse käynnistää hakua itse.
+          Näkymä perustuu VakeVahdin viimeisimpiin onnistuneesti tallennettuihin lähdehavaintoihin.
+          Sivun avaaminen ei käynnistä uusia verkkohakuja rahoittajien sivustoille.
         </p>
       </div>
-      <button id="scan-button" class="primary-button" type="button">Päivitä STM nyt</button>
+      <button id="refresh-button" class="refresh-button" type="button">Päivitä näkymä</button>
     </section>
 
-    <div class="status" id="scan-status" role="status">
-      <span class="status-dot"></span>
-      <span id="scan-message"></span>
+    <div id="status-banner" class="status-banner" role="alert">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span id="status-message"></span>
     </div>
 
-    <section class="results-card">
-      <div class="results-head">
+    <section class="kpis" aria-label="Tilannekuvan tunnusluvut">
+      <article class="kpi">
+        <span class="kpi-label">Nykyiset rahoitushaut</span>
+        <strong class="kpi-value" id="total-calls">–</strong>
+        <span class="kpi-detail">Viimeisimmistä onnistuneista lähdehavainnoista</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi-label">Terveet lähteet</span>
+        <strong class="kpi-value" id="healthy-sources">–</strong>
+        <span class="kpi-detail" id="healthy-detail">Lähdetilaa ladataan</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi-label">Huomiota vaativat lähteet</span>
+        <strong class="kpi-value" id="attention-sources">–</strong>
+        <span class="kpi-detail">FAILED/RUNNING/ei vielä skannattu</span>
+      </article>
+      <article class="kpi">
+        <span class="kpi-label">Viimeisin onnistunut lähdeajo</span>
+        <strong class="kpi-value" id="latest-success">–</strong>
+        <span class="kpi-detail" id="latest-success-detail">Ei vielä tietoa</span>
+      </article>
+    </section>
+
+    <section class="section" aria-labelledby="sources-heading">
+      <div class="section-head">
         <div>
-          <h2>Löydetyt rahoitushaut</h2>
-          <p id="results-subtitle">Käynnistä testihaku nähdäksesi nykyiset STM-tulokset.</p>
+          <h2 id="sources-heading">Lähteiden tila</h2>
+          <p>Operatiivinen tila ja viimeisimmän ajon tallennetut faktat lähteittäin.</p>
+        </div>
+      </div>
+      <div id="source-grid" class="source-grid" aria-live="polite">
+        <div class="loading-state">Ladataan lähteiden tilaa…</div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="calls-heading">
+      <div class="section-head">
+        <div>
+          <h2 id="calls-heading">Nykyiset rahoitushaut</h2>
+          <p>Lista näyttää vain kunkin lähteen viimeisimpään onnistuneeseen tilannekuvaan kuuluvat haut.</p>
         </div>
       </div>
 
-      <div id="calls" class="calls">
-        <div class="empty">Ei tuloksia vielä.</div>
-      </div>
-      <button id="more-button" class="more-button" type="button">Näytä kaikki</button>
-
-      <details class="technical-details">
-        <summary>Näytä tekninen toteutus</summary>
-        <div class="technical">
-          Nykyinen toimiva live-polku: <code>STM → HTTP → HTML-parsinta → FundingCallCandidate → validointi → API → UI</code>.<br>
-          Suunnitellut seurantalähteet: STM, Haeavustuksia.fi, EURA 2021, Sitra ja Suomen Akatemia.<br>
-          Seuraavat tuotantovaiheet ovat PostgreSQL-persistenssin käyttöönotto, ajastettu seuranta,
-          muutostunnistus ja ilmoitukset. Manuaalinen "Päivitä nyt" säilyy ylläpito- ja testitoimintona.
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <label for="source-filter">Rajaa lähteen mukaan</label>
+          <select id="source-filter" class="source-select">
+            <option value="">Kaikki lähteet</option>
+          </select>
         </div>
-      </details>
+        <span id="list-count" class="list-count">Ladataan…</span>
+      </div>
+
+      <div class="opportunity-panel">
+        <div id="opportunity-list" class="opportunity-list" aria-live="polite">
+          <div class="loading-state">Ladataan tallennettuja rahoitushakuja…</div>
+        </div>
+      </div>
+
+      <p class="footnote">
+        Lähteen tila kertoo viimeisimmän tallennetun ajon onnistumisesta. VakeVahti ei tässä vaiheessa
+        päättele mielivaltaista vanhentumisrajaa; viimeisimmän onnistuneen ajon aika näytetään erikseen.
+      </p>
     </section>
   </main>
 
   <script>
-    const scanButton = document.getElementById('scan-button');
-    const callsNode = document.getElementById('calls');
-    const countNode = document.getElementById('call-count');
-    const countLabel = document.getElementById('count-label');
-    const statusNode = document.getElementById('scan-status');
-    const messageNode = document.getElementById('scan-message');
-    const subtitleNode = document.getElementById('results-subtitle');
-    const moreButton = document.getElementById('more-button');
+    const state = { health: [], calls: [], details: new Map(), source: "" };
 
-    let allCalls = [];
-    let expanded = false;
-    let openCallKey = null;
+    const elements = {
+      refreshButton: document.getElementById("refresh-button"),
+      statusBanner: document.getElementById("status-banner"),
+      statusMessage: document.getElementById("status-message"),
+      totalCalls: document.getElementById("total-calls"),
+      healthySources: document.getElementById("healthy-sources"),
+      healthyDetail: document.getElementById("healthy-detail"),
+      attentionSources: document.getElementById("attention-sources"),
+      latestSuccess: document.getElementById("latest-success"),
+      latestSuccessDetail: document.getElementById("latest-success-detail"),
+      sourceGrid: document.getElementById("source-grid"),
+      sourceFilter: document.getElementById("source-filter"),
+      listCount: document.getElementById("list-count"),
+      opportunityList: document.getElementById("opportunity-list"),
+    };
 
-    function setStatus(message, isError = false) {
-      messageNode.textContent = message;
-      statusNode.classList.add('visible');
-      statusNode.classList.toggle('error', isError);
+    function clear(node) {
+      while (node.firstChild) node.removeChild(node.firstChild);
     }
 
-    function formatDate(value) {
-      if (!value) return null;
+    function text(tag, value, className) {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      node.textContent = value;
+      return node;
+    }
+
+    function showError(message) {
+      elements.statusMessage.textContent = message;
+      elements.statusBanner.classList.add("visible");
+    }
+
+    function clearError() {
+      elements.statusMessage.textContent = "";
+      elements.statusBanner.classList.remove("visible");
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "Ei tietoa";
       const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return String(value);
-      return new Intl.DateTimeFormat('fi-FI').format(date);
+      if (Number.isNaN(date.getTime())) return "Ei tietoa";
+      return new Intl.DateTimeFormat("fi-FI", { dateStyle: "short", timeStyle: "short" }).format(date);
     }
 
-    function deadlineText(call) {
-      const structured = formatDate(call.application_deadline_at);
-      if (structured) return structured;
+    function formatDeadline(value) {
+      if (!value) return { label: "Ei ilmoitettu", className: "" };
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return { label: "Ei ilmoitettu", className: "" };
 
-      const text = call.description_text || '';
-      const range = text.match(/(\d{1,2}\.\d{1,2}\.\d{4})\s*[-–]\s*(\d{1,2}\.\d{1,2}\.\d{4})/);
-      if (range) return `${range[1]} - ${range[2]}`;
+      const now = new Date();
+      const days = Math.ceil((date.getTime() - now.getTime()) / 86400000);
+      const label = new Intl.DateTimeFormat("fi-FI", { dateStyle: "medium", timeStyle: "short" }).format(date);
 
-      const single = text.match(/(?:määräaika|hakuaika|haku)[^0-9]{0,50}(\d{1,2}\.\d{1,2}\.\d{4})/i);
-      if (single) return single[1];
-
-      return 'Ei erillistä määräaikatietoa tässä listanäkymässä.';
+      if (days < 0) return { label, className: "deadline-past" };
+      if (days <= 7) return { label, className: "deadline-soon" };
+      return { label, className: "" };
     }
 
-    function summaryText(call) {
-      const raw = (call.description_text || call.relevance_reason || '').trim();
-      if (!raw) return 'Tarkempaa sisältökuvausta ei ole vielä saatavilla.';
-      return raw.length > 320 ? `${raw.slice(0, 317)}…` : raw;
+    function healthLabel(value) {
+      const labels = { HEALTHY: "Toimii", FAILING: "Virhe", RUNNING: "Käynnissä", NEVER_SCANNED: "Ei vielä ajoa" };
+      return labels[value] || value;
     }
 
-    function relevanceLabel(status) {
-      if (status === 'RELEVANT') return 'Relevantti';
-      if (status === 'NEEDS_REVIEW') return 'Tarkistettava';
-      if (status === 'NOT_RELEVANT') return 'Ei relevantti';
-      return status || 'Tila puuttuu';
+    function sourceDisplayName(code) {
+      const names = { STM: "STM", SITRA: "Sitra", ACADEMY: "Suomen Akatemia" };
+      return names[code] || code;
     }
 
-    function createDetailBlock(label, value) {
-      const block = document.createElement('div');
-      const labelNode = document.createElement('span');
-      labelNode.className = 'detail-label';
-      labelNode.textContent = label;
-
-      const valueNode = document.createElement('p');
-      valueNode.className = 'detail-value';
-      valueNode.textContent = value;
-
-      block.append(labelNode, valueNode);
-      return block;
+    function addFact(container, label, value) {
+      const row = document.createElement("div");
+      row.className = "fact";
+      row.append(text("span", label));
+      row.append(text("strong", value));
+      container.append(row);
     }
 
-    function createCallRow(call, index) {
-      const key = call.external_key || `${index}-${call.title}`;
-      const isOpen = openCallKey === key;
+    function renderHealth() {
+      clear(elements.sourceGrid);
 
-      const row = document.createElement('article');
-      row.className = 'call';
-
-      const toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'call-toggle';
-      toggle.setAttribute('aria-expanded', String(isOpen));
-      toggle.setAttribute('aria-label', `${call.title}. Näytä tai piilota lisätiedot.`);
-
-      const number = document.createElement('div');
-      number.className = 'call-index';
-      number.textContent = String(index + 1).padStart(2, '0');
-
-      const title = document.createElement('div');
-      title.className = 'call-title';
-      title.textContent = call.title;
-
-      const badge = document.createElement('div');
-      badge.className = 'badge';
-      badge.textContent = relevanceLabel(call.relevance_status);
-
-      const chevron = document.createElement('span');
-      chevron.className = 'chevron';
-      chevron.setAttribute('aria-hidden', 'true');
-      chevron.textContent = '›';
-
-      toggle.append(number, title, badge, chevron);
-      toggle.addEventListener('click', () => {
-        openCallKey = openCallKey === key ? null : key;
-        renderCalls();
-      });
-
-      row.appendChild(toggle);
-
-      if (isOpen) {
-        const details = document.createElement('div');
-        details.className = 'call-details';
-
-        const grid = document.createElement('div');
-        grid.className = 'detail-grid';
-        grid.append(
-          createDetailBlock('Hakuaika / määräaika', deadlineText(call)),
-          createDetailBlock('Lähde', call.source_code || 'STM')
-        );
-
-        const summary = document.createElement('div');
-        summary.className = 'summary-box';
-        summary.appendChild(createDetailBlock('Lyhyt sisältö', summaryText(call)));
-
-        details.append(grid, summary);
-
-        if (call.source_url) {
-          const sourceLink = document.createElement('a');
-          sourceLink.className = 'source-link';
-          sourceLink.href = call.source_url;
-          sourceLink.target = '_blank';
-          sourceLink.rel = 'noreferrer';
-          sourceLink.textContent = 'Avaa STM:n lähdesivu';
-          details.appendChild(sourceLink);
-        }
-
-        row.appendChild(details);
-      }
-
-      return row;
-    }
-
-    function renderCalls() {
-      callsNode.replaceChildren();
-
-      if (!allCalls.length) {
-        const empty = document.createElement('div');
-        empty.className = 'empty';
-        empty.textContent = 'Rahoitushakuja ei löytynyt.';
-        callsNode.appendChild(empty);
-        moreButton.classList.remove('visible');
+      if (!state.health.length) {
+        elements.sourceGrid.append(text("div", "Yhtään määritettyä lähdettä ei löytynyt.", "empty-state"));
+        elements.healthySources.textContent = "0";
+        elements.attentionSources.textContent = "0";
+        elements.healthyDetail.textContent = "0 määritettyä lähdettä";
         return;
       }
 
-      const visibleCalls = expanded ? allCalls : allCalls.slice(0, 5);
-      visibleCalls.forEach((call, index) => callsNode.appendChild(createCallRow(call, index)));
+      const healthy = state.health.filter((item) => item.health === "HEALTHY").length;
+      const attention = state.health.length - healthy;
+      elements.healthySources.textContent = String(healthy);
+      elements.attentionSources.textContent = String(attention);
+      elements.healthyDetail.textContent = `${healthy}/${state.health.length} lähdettä toimii`;
 
-      if (allCalls.length > 5) {
-        moreButton.classList.add('visible');
-        moreButton.textContent = expanded ? 'Näytä vähemmän' : `Näytä kaikki (${allCalls.length})`;
+      const successfulTimes = state.health
+        .map((item) => item.last_successful_scan_at)
+        .filter(Boolean)
+        .map((value) => new Date(value))
+        .filter((value) => !Number.isNaN(value.getTime()));
+
+      if (successfulTimes.length) {
+        const latest = new Date(Math.max(...successfulTimes.map((value) => value.getTime())));
+        elements.latestSuccess.textContent = new Intl.DateTimeFormat("fi-FI", { hour: "2-digit", minute: "2-digit" }).format(latest);
+        elements.latestSuccessDetail.textContent = new Intl.DateTimeFormat("fi-FI", { dateStyle: "medium" }).format(latest);
       } else {
-        moreButton.classList.remove('visible');
+        elements.latestSuccess.textContent = "–";
+        elements.latestSuccessDetail.textContent = "Ei onnistuneita ajoja";
       }
-    }
 
-    async function runScan() {
-      scanButton.disabled = true;
-      scanButton.textContent = 'Päivitetään…';
-      statusNode.classList.remove('error');
-      setStatus('Haetaan STM:n rahoitushakuja…');
-      subtitleNode.textContent = 'Live-haku on käynnissä.';
+      const existingOptions = new Set(Array.from(elements.sourceFilter.options).map((option) => option.value));
 
-      try {
-        const response = await fetch('/api/demo/stm-calls', { cache: 'no-store' });
-        if (!response.ok) {
-          const errorPayload = await response.json().catch(() => ({}));
-          throw new Error(errorPayload.detail || `HTTP ${response.status}`);
+      for (const item of state.health) {
+        if (!existingOptions.has(item.source_code)) {
+          const option = document.createElement("option");
+          option.value = item.source_code;
+          option.textContent = sourceDisplayName(item.source_code);
+          elements.sourceFilter.append(option);
         }
 
-        const payload = await response.json();
-        allCalls = payload.calls || [];
-        expanded = false;
-        openCallKey = null;
-        countNode.textContent = String(payload.count);
-        countLabel.textContent = payload.count === 1 ? 'rahoitushaku löydetty' : 'rahoitushakua löydetty';
-        subtitleNode.textContent = `STM:stä löytyi ${payload.count} rahoitushakua. Klikkaa riviä nähdäksesi lisätiedot.`;
-        setStatus(`Valmis. ${payload.count} rahoitushakua löydetty ja validoitu.`);
-        renderCalls();
-      } catch (error) {
-        allCalls = [];
-        openCallKey = null;
-        countNode.textContent = '–';
-        subtitleNode.textContent = 'Hakua ei voitu suorittaa.';
-        callsNode.innerHTML = '<div class="empty">Tuloksia ei voitu ladata.</div>';
-        moreButton.classList.remove('visible');
-        setStatus(`Haku epäonnistui: ${error.message}`, true);
-      } finally {
-        scanButton.disabled = false;
-        scanButton.textContent = 'Päivitä STM nyt';
+        const card = document.createElement("article");
+        card.className = "source-card";
+
+        const head = document.createElement("div");
+        head.className = "source-card-head";
+        head.append(text("div", sourceDisplayName(item.source_code), "source-name"));
+
+        const badge = text("span", healthLabel(item.health), "health-badge");
+        badge.classList.add(`health-${String(item.health).toLowerCase()}`);
+        head.append(badge);
+        card.append(head);
+
+        const count = document.createElement("div");
+        count.className = "source-count";
+        count.append(document.createTextNode(String(item.current_call_count)));
+        count.append(text("span", "nykyistä hakua"));
+        card.append(count);
+
+        const facts = document.createElement("div");
+        facts.className = "fact-list";
+        addFact(facts, "Viimeisin onnistunut ajo", formatDateTime(item.last_successful_scan_at));
+        addFact(facts, "Viimeisin ajotila", item.latest_scan_status || "Ei tietoa");
+        addFact(facts, "Uusia / muuttuneita", `${item.latest_new_count ?? "–"} / ${item.latest_changed_count ?? "–"}`);
+        if (item.latest_error_type) addFact(facts, "Virheluokka", item.latest_error_type);
+        card.append(facts);
+
+        elements.sourceGrid.append(card);
       }
     }
 
-    scanButton.addEventListener('click', runScan);
-    moreButton.addEventListener('click', () => {
-      expanded = !expanded;
+    function detailBox(label, value) {
+      const box = document.createElement("div");
+      box.className = "detail-box";
+      box.append(text("span", label, "detail-label"));
+      box.append(text("p", value, "detail-value"));
+      return box;
+    }
+
+    function renderDetail(container, detail) {
+      clear(container);
+
+      const grid = document.createElement("div");
+      grid.className = "detail-grid";
+      grid.append(detailBox("Haku avautuu", formatDateTime(detail.application_opens_at)));
+      grid.append(detailBox("Ensimmäinen havainto", formatDateTime(detail.first_seen_at)));
+      grid.append(detailBox("Viimeisin havainto", formatDateTime(detail.last_seen_at)));
+      grid.append(detailBox("Relevanssi", detail.relevance_status || "Ei tietoa"));
+      grid.append(detailBox("Perustelu", detail.relevance_reason || "Ei tietoa"));
+      grid.append(detailBox("Versio", String(detail.current_version)));
+      container.append(grid);
+
+      const description = document.createElement("div");
+      description.className = "description-box";
+      description.append(text("span", "Kuvaus", "detail-label"));
+      description.append(text("p", detail.description_text || "Lähteestä ei ole tallennettu kuvaustekstiä.", "detail-value"));
+      container.append(description);
+
+      const link = document.createElement("a");
+      link.className = "source-link";
+      link.href = detail.source_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Avaa alkuperäinen lähde";
+      container.append(link);
+    }
+
+    async function loadDetail(id, container) {
+      if (state.details.has(id)) {
+        renderDetail(container, state.details.get(id));
+        return;
+      }
+
+      clear(container);
+      container.append(text("div", "Ladataan tarkempia tietoja…", "details-loading"));
+
+      try {
+        const response = await fetch(`/api/funding-calls/${encodeURIComponent(id)}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const detail = await response.json();
+        state.details.set(id, detail);
+        renderDetail(container, detail);
+      } catch (error) {
+        clear(container);
+        container.append(text("div", "Tarkempia tietoja ei saatu ladattua.", "details-loading"));
+      }
+    }
+
+    function renderCalls() {
+      clear(elements.opportunityList);
+      elements.totalCalls.textContent = String(state.calls.length);
+      elements.listCount.textContent = `${state.calls.length} hakua`;
+
+      if (!state.calls.length) {
+        elements.opportunityList.append(text("div", "Valitussa viimeisimmässä onnistuneessa tilannekuvassa ei ole nykyisiä rahoitushakuja.", "empty-state"));
+        return;
+      }
+
+      state.calls.forEach((call) => {
+        const row = document.createElement("article");
+        row.className = "opportunity";
+
+        const toggle = document.createElement("button");
+        toggle.type = "button";
+        toggle.className = "opportunity-toggle";
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.append(text("span", sourceDisplayName(call.source_code), "source-pill"));
+        toggle.append(text("span", call.title, "opportunity-title"));
+
+        const deadline = formatDeadline(call.application_deadline_at);
+        const deadlineBlock = document.createElement("span");
+        deadlineBlock.className = "deadline-block";
+        if (deadline.className) deadlineBlock.classList.add(deadline.className);
+        deadlineBlock.append(text("span", "Hakuaika päättyy", "deadline-label"));
+        deadlineBlock.append(text("span", deadline.label, "deadline-value"));
+        toggle.append(deadlineBlock);
+        toggle.append(text("span", "›", "chevron"));
+
+        const details = document.createElement("div");
+        details.className = "opportunity-details";
+        details.hidden = true;
+
+        toggle.addEventListener("click", async () => {
+          const expanded = toggle.getAttribute("aria-expanded") === "true";
+          toggle.setAttribute("aria-expanded", String(!expanded));
+          details.hidden = expanded;
+          if (!expanded) await loadDetail(call.id, details);
+        });
+
+        row.append(toggle, details);
+        elements.opportunityList.append(row);
+      });
+    }
+
+    async function fetchHealth() {
+      const response = await fetch("/api/sources/health");
+      if (!response.ok) throw new Error(`Health HTTP ${response.status}`);
+      const payload = await response.json();
+      state.health = payload.sources || [];
+      renderHealth();
+    }
+
+    async function fetchCalls() {
+      const params = new URLSearchParams({ limit: "100", offset: "0" });
+      if (state.source) params.set("source_code", state.source);
+      const response = await fetch(`/api/funding-calls?${params.toString()}`);
+      if (!response.ok) throw new Error(`Funding HTTP ${response.status}`);
+      const payload = await response.json();
+      state.calls = payload.items || [];
       renderCalls();
+    }
+
+    async function loadDashboard() {
+      clearError();
+      elements.refreshButton.disabled = true;
+      try {
+        await Promise.all([fetchHealth(), fetchCalls()]);
+      } catch (error) {
+        showError("Tallennettua tilannekuvaa ei saatu ladattua. Tarkista API:n ja tietokannan tila.");
+      } finally {
+        elements.refreshButton.disabled = false;
+      }
+    }
+
+    elements.sourceFilter.addEventListener("change", async (event) => {
+      state.source = event.target.value;
+      state.calls = [];
+      state.details.clear();
+      elements.opportunityList.replaceChildren(text("div", "Ladataan…", "loading-state"));
+      try {
+        await fetchCalls();
+      } catch (error) {
+        showError("Rahoitushakuja ei saatu ladattua valitulle lähteelle.");
+      }
     });
+
+    elements.refreshButton.addEventListener("click", () => {
+      state.details.clear();
+      loadDashboard();
+    });
+
+    loadDashboard();
   </script>
 </body>
 </html>
