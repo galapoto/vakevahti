@@ -4,10 +4,10 @@ from app.config import Settings
 from app.scanners.registry import UnknownFundingSourceError, build_scanners
 
 
-def test_enabled_source_codes_normalize_comma_separated_config() -> None:
+def test_enabled_source_codes_normalize_and_deduplicate_config() -> None:
     settings = Settings(enabled_sources=" stm, STM ")
 
-    assert settings.enabled_source_codes == ("STM", "STM")
+    assert settings.enabled_source_codes == ("STM",)
 
 
 def test_registry_builds_configured_stm_adapter() -> None:
