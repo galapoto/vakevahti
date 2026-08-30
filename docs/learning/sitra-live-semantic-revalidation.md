@@ -2,7 +2,7 @@
 
 Date: 2026-08-30
 
-Status: corrected Sitra entity extraction live-validated; final multi-source/local quality rerun remains before PR #8 can leave draft.
+Status: corrected Sitra entity extraction and final combined multi-source/local quality rerun passed; final database-state inspection remains before PR #8 can leave draft.
 
 ## What was validated
 
@@ -40,6 +40,33 @@ The row persisted `application_deadline_at=2026-09-15 09:00:00+00`. The authorit
 The live count of one actionable call is also consistent with Sitra's current state on 30 August 2026. The separate continuous breakthrough-renewal round ended on 28 August 2026 at 12:00 and Sitra states that the next round opens on 1 September 2026.
 
 Backend CI run #58 passed Ruff, strict mypy, Alembic and PostgreSQL pytest on the semantic parser correction.
+
+## Final corrected multi-source rerun
+
+After pulling the corrected parser and the first live-validation documentation commit, the Linux development environment ran `STM,SITRA,ACADEMY` twice consecutively using the real PostgreSQL development database.
+
+First combined run:
+
+- STM: `new=0`, `unchanged=9`, `changed=0`
+- SITRA: `new=0`, `unchanged=1`, `changed=0`
+- ACADEMY: `new=0`, `unchanged=7`, `changed=0`
+
+Second combined run:
+
+- STM: `new=0`, `unchanged=9`, `changed=0`
+- SITRA: `new=0`, `unchanged=1`, `changed=0`
+- ACADEMY: `new=0`, `unchanged=7`, `changed=0`
+
+This proves repeated multi-source orchestration remains idempotent after the Sitra semantic correction. No source produced a false NEW or CHANGED event on the immediate repeat.
+
+The local quality gates then passed:
+
+- Ruff: all checks passed
+- strict mypy: no issues found in 24 source files
+- pytest: 28 passed
+- PostgreSQL integration tests included successful ingestion audit, failed-scan isolation, persistence idempotency and per-source concurrency serialization
+
+One Starlette `TestClient`/`httpx` deprecation warning remains. It does not affect Milestone 4 correctness and is tracked separately in GitHub issue #9 rather than expanding the source-adapter PR at the merge boundary.
 
 ## Data Engineering lesson: validate against an independent authoritative representation
 
@@ -111,13 +138,21 @@ The first browser-fallback implementation passed deterministic tests and CI but 
 
 > Unit tests prove deterministic parser behavior against controlled structures. PostgreSQL integration tests prove persistence, transactions and idempotency. Live validation proves that the current external website still satisfies the adapter assumptions. None replaces the others; together they cover code correctness, database semantics and external-contract reality.
 
+## CI lesson: warnings and failures have different release semantics
+
+The final local suite passed all 28 tests but emitted one deprecation warning from the test-client dependency stack. A warning is not equivalent to a failed invariant, but it is also not something to ignore indefinitely.
+
+### DevOps/QA interview question: Why did you not upgrade the TestClient dependency inside PR #8?
+
+> The warning is a future compatibility signal, not a failure of the funding-source milestone. Changing the HTTP test-client stack would add unrelated dependency risk at the merge boundary. I kept the current quality gate green, created a dedicated follow-up issue, and will handle the migration in a focused change where compatibility and regressions can be evaluated independently.
+
 ## Remaining Milestone 4 gate
 
 Before PR #8 leaves draft:
 
-1. run `STM,SITRA,ACADEMY` twice using the corrected Sitra parser
-2. confirm the second run is UNCHANGED for all three sources
-3. rerun local Ruff, strict mypy and full PostgreSQL pytest
-4. inspect current source counts and recent audit rows
-5. update PR #8 with the final combined evidence
-6. only then mark ready and merge using the project's professional merge convention
+1. inspect current per-source funding counts and version counts
+2. confirm the duplicate-key query returns no rows
+3. inspect the current Sitra row and latest scan audits
+4. confirm no unexpected Sitra versions or duplicate entities were created after the source-scoped repair
+5. update PR #8 with the final database evidence
+6. mark ready and merge using the project's professional merge convention
