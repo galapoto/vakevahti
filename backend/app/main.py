@@ -37,7 +37,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.3.0",
+        version="0.4.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -46,7 +46,7 @@ def create_app(
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard() -> HTMLResponse:
-        """Development dashboard for demonstrating currently implemented capabilities."""
+        """Serve the persisted operational dashboard without triggering source scans."""
 
         return HTMLResponse(DASHBOARD_HTML)
 
@@ -58,7 +58,7 @@ def create_app(
 
     @application.get("/api/demo/stm-calls", tags=["demo"])
     async def demo_stm_calls() -> dict[str, object]:
-        """Run the real STM adapter and return validated calls for the development UI."""
+        """Run the real STM adapter and return validated calls for engineering diagnostics."""
 
         try:
             calls = await STMScanner(settings).scan()
