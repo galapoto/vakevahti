@@ -4,17 +4,43 @@ VakeVahti is an internal funding-opportunity monitoring and workflow application
 
 ## Current milestone
 
-Milestone 1 establishes the first thin vertical slice:
+The first ingestion slice is proven and Milestone 2 is adding durable PostgreSQL persistence and change detection.
 
-`STM website -> HTTP -> HTML parser -> validated FundingCallCandidate -> terminal output`
+Current implemented flow:
 
-This deliberately proves extraction before adding PostgreSQL, scheduling, notifications, FastAPI endpoints, or the frontend.
+`STM website -> HTTP -> HTML parser -> validated FundingCallCandidate -> development UI`
 
-## Why start this way?
+Persistence foundation:
 
-The project uses incremental delivery: make one end-to-end path work, test it, understand it, then add persistence and workflow around it. This keeps the architecture understandable and catches source-specific problems early.
+`FundingCallCandidate -> content hash -> PostgreSQL -> NEW / UNCHANGED / CHANGED -> version history`
 
-## Local setup
+The managed workplace PC currently has no approved local PostgreSQL or Docker runtime, so PostgreSQL integration behavior is validated in GitHub Actions while unit tests and the development UI remain runnable locally.
+
+## Development UI
+
+A lightweight FastAPI-served mentor/demo dashboard is available at the application root. It deliberately has no Node.js requirement and shows only currently implemented capabilities. It can trigger the real STM adapter and display the validated live funding calls.
+
+Windows managed-workstation setup:
+
+```powershell
+cd C:\Users\vitus.idi2\vakevahti\backend
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload
+```
+
+Then open:
+
+`http://127.0.0.1:8000/`
+
+API documentation:
+
+`http://127.0.0.1:8000/docs`
+
+Health check:
+
+`http://127.0.0.1:8000/health/live`
+
+## Linux/macOS local setup
 
 Requirements:
 
@@ -26,30 +52,31 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
 cp ../.env.example ../.env
-```
-
-Run the API:
-
-```bash
 uvicorn app.main:app --reload
 ```
 
-Health check:
+## Manual STM discovery
 
-```bash
-curl http://127.0.0.1:8000/health/live
+Windows without activating the virtual environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m app.cli scan-stm
 ```
 
-Run the first STM discovery manually:
+Linux/macOS:
 
 ```bash
 python -m app.cli scan-stm
 ```
 
-Run tests:
+## Quality checks
 
-```bash
-pytest
+Windows:
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m mypy app
+.\.venv\Scripts\python.exe -m pytest
 ```
 
 ## Engineering rules
@@ -58,11 +85,10 @@ Read [`AGENTS.md`](AGENTS.md) and [`docs/LEARNING_AND_ENGINEERING_CHARTER.md`](d
 
 ## Next milestones
 
-1. Persist funding calls in PostgreSQL.
-2. Add stable deduplication and baseline import.
-3. Detect new/changed calls.
-4. Add notifications.
-5. Add Sitra and Academy adapters.
-6. Add Haeavustuksia eligibility rules.
-7. Add EURA region + eligibility rules.
-8. Add API/UI/review/reporting workflow.
+1. Complete PostgreSQL persistence and baseline import.
+2. Verify idempotent NEW / UNCHANGED / CHANGED behavior in CI.
+3. Add notifications.
+4. Add Sitra and Academy adapters.
+5. Add Haeavustuksia eligibility rules.
+6. Add EURA region + eligibility rules.
+7. Replace the development dashboard with the employee-facing application UI and review/reporting workflow.
