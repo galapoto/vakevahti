@@ -28,16 +28,19 @@ class Settings(BaseSettings):
 
     @property
     def enabled_source_codes(self) -> tuple[str, ...]:
-        """Return normalized comma-separated source codes from configuration."""
+        """Return normalized, de-duplicated source codes in configured order."""
 
-        codes = tuple(
-            source.strip().upper()
-            for source in self.enabled_sources.split(",")
-            if source.strip()
-        )
+        codes: list[str] = []
+        seen: set[str] = set()
+        for raw_source in self.enabled_sources.split(","):
+            source_code = raw_source.strip().upper()
+            if source_code and source_code not in seen:
+                seen.add(source_code)
+                codes.append(source_code)
+
         if not codes:
             raise ValueError("ENABLED_SOURCES must contain at least one source code.")
-        return codes
+        return tuple(codes)
 
 
 @lru_cache
