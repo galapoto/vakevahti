@@ -73,6 +73,46 @@ def test_sitra_accepts_semantic_heading_levels_without_css_assumptions() -> None
     assert [call.title for call in calls] == ["Open semantic card"]
 
 
+def test_sitra_status_is_anchored_to_individual_card_not_section_heading() -> None:
+    html = """
+    <main>
+      <section>
+        <h2>Rahoitushaut</h2>
+        <div class="funding-cards">
+          <article>
+            <a href="/funding/productivity-ai">
+              <h3>Tuottavuutta tekoälyllä – valmennusta julkiselle sektorille</h3>
+            </a>
+            <div><span>Haku käynnissä 22.6.2026 - 15.9.2026 09.00</span></div>
+          </article>
+          <article>
+            <a href="/funding/breakthrough-renewal">
+              <h3>Jatkuva haku: Läpimurtouudistukset julkisen sektorin tuottavuuteen</h3>
+            </a>
+            <div><span>Haku käynnissä 1.6.2026 - 28.8.2026 09.00</span></div>
+          </article>
+          <article>
+            <a href="/funding/closed-call"><h3>Suljettu rahoitushaku</h3></a>
+            <div><span>Haku sulkeutunut Päättyi 11.8.2026 09.00</span></div>
+          </article>
+        </div>
+      </section>
+    </main>
+    """
+
+    calls = parse_sitra_html(html, SOURCE_URL)
+
+    assert [call.title for call in calls] == [
+        "Tuottavuutta tekoälyllä – valmennusta julkiselle sektorille",
+        "Jatkuva haku: Läpimurtouudistukset julkisen sektorin tuottavuuteen",
+    ]
+    assert all(call.title != "Rahoitushaut" for call in calls)
+    assert [str(call.source_url) for call in calls] == [
+        "https://asiointi.sitra.fi/funding/productivity-ai",
+        "https://asiointi.sitra.fi/funding/breakthrough-renewal",
+    ]
+
+
 @pytest.mark.asyncio
 async def test_sitra_power_pages_shell_uses_rendered_html_fallback() -> None:
     shell_html = """
@@ -86,8 +126,8 @@ async def test_sitra_power_pages_shell_uses_rendered_html_fallback() -> None:
     rendered_html = """
     <main>
       <section>
-        <h3><a href="/funding/open-call">Rendered open call</a></h3>
-        <p>Haku käynnissä 22.6.2026 - 15.9.2026 09.00</p>
+        <a href="/funding/open-call"><h3>Rendered open call</h3></a>
+        <div><span>Haku käynnissä 22.6.2026 - 15.9.2026 09.00</span></div>
       </section>
     </main>
     """

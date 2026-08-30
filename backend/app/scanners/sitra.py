@@ -1,7 +1,8 @@
+import re
 from collections.abc import Awaitable, Callable
 
 import httpx
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, NavigableString, Tag
 from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
@@ -11,7 +12,7 @@ from app.config import Settings
 from app.domain.funding_call import Evidence, FundingCallCandidate, RelevanceStatus
 from app.scanners.common import (
     SourceStructureError,
-    heading_link,
+    canonical_url,
     normalize_text,
     parse_explicit_finnish_datetime,
     stable_external_key,
@@ -19,33 +20,14 @@ from app.scanners.common import (
 
 _OPEN_STATUS = "haku käynnissä"
 _CLOSED_STATUS = "haku sulkeutunut"
-_HEADING_NAMES = ("h2", "h3", "h4", "h5", "h6")
+_CALL_HEADING_NAMES = ("h3", "h4", "h5", "h6")
+_LIFECYCLE_TEXT = re.compile(r"haku\s+(?:käynnissä|sulkeutunut)", re.IGNORECASE)
 
 SitraHtmlRenderer = Callable[[], Awaitable[str]]
 
 
 class SitraListingStructureError(SourceStructureError):
     """Raised when no Sitra funding-call lifecycle blocks can be recognized."""
-
-
-def _segment_text(heading: Tag) -> str:
-    parts: list[str] = []
-    node = heading.find_next_sibling()
-    while isinstance(node, Tag):
-        if node.name in _HEADING_NAMES:
-            break
-        text = normalize_text(node.get_text(" ", strip=True))
-        if text:
-            parts.append(text)
-        node = node.find_next_sibling()
-
-    if parts:
-        return normalize_text(" ".join(parts))
-
-    parent = heading.parent
-    if isinstance(parent, Tag):
-        return normalize_text(parent.get_text(" ", strip=True))
-    return ""
 
 
 def _contains_visible_lifecycle_status(html: str) -> bool:
@@ -59,32 +41,93 @@ def _contains_visible_lifecycle_status(html: str) -> bool:
     return _OPEN_STATUS in text or _CLOSED_STATUS in text
 
 
+def _nearest_call_container(status_text: NavigableString, root: Tag) -> tuple[Tag, Tag] | None:
+    """Associate a lifecycle marker with the nearest single-card heading.
+
+    Sitra's Power Pages markup can wrap an ``h3`` inside an anchor while placing the
+    lifecycle status in a sibling element. Walking upward from the status avoids
+    mistaking the broader ``h2 Rahoitushaut`` section for an individual opportunity.
+    """
+
+    node = status_text.parent
+    while isinstance(node, Tag):
+        headings = [
+            heading
+            for heading in node.find_all(_CALL_HEADING_NAMES)
+            if isinstance(heading, Tag)
+        ]
+        if len(headings) == 1:
+            return node, headings[0]
+        if node is root:
+            break
+        node = node.parent
+    return None
+
+
+def _call_url(heading: Tag, card: Tag, base_url: str) -> str:
+    """Prefer the link owning the call heading, then a unique card link."""
+
+    anchor = heading.find("a", href=True)
+    if isinstance(anchor, Tag):
+        href = anchor.attrs.get("href")
+        if isinstance(href, str):
+            return canonical_url(base_url, href)
+
+    node = heading.parent
+    while isinstance(node, Tag):
+        if node.name == "a":
+            href = node.attrs.get("href")
+            if isinstance(href, str):
+                return canonical_url(base_url, href)
+        if node is card:
+            break
+        node = node.parent
+
+    anchors = [anchor for anchor in card.find_all("a", href=True) if isinstance(anchor, Tag)]
+    if len(anchors) == 1:
+        href = anchors[0].attrs.get("href")
+        if isinstance(href, str):
+            return canonical_url(base_url, href)
+
+    return base_url
+
+
 def parse_sitra_html(
     html: str,
     source_url: str,
     *,
     timezone: str = "Europe/Helsinki",
 ) -> list[FundingCallCandidate]:
-    """Parse currently open Sitra funding calls from a rendered funding listing."""
+    """Parse currently open Sitra funding cards from a rendered listing."""
 
     soup = BeautifulSoup(html, "lxml")
     root = soup.find("main") or soup
 
     recognized = 0
     calls: list[FundingCallCandidate] = []
+    seen_containers: set[int] = set()
 
-    for heading in root.find_all(_HEADING_NAMES):
-        if not isinstance(heading, Tag):
+    for status_text in root.find_all(string=_LIFECYCLE_TEXT):
+        if not isinstance(status_text, NavigableString):
             continue
+
+        association = _nearest_call_container(status_text, root)
+        if association is None:
+            continue
+
+        card, heading = association
+        container_id = id(card)
+        if container_id in seen_containers:
+            continue
+        seen_containers.add(container_id)
 
         title = normalize_text(heading.get_text(" ", strip=True))
         if not title:
             continue
 
-        details = _segment_text(heading)
-        details_folded = details.casefold()
-        is_open = _OPEN_STATUS in details_folded
-        is_closed = _CLOSED_STATUS in details_folded
+        lifecycle = normalize_text(str(status_text)).casefold()
+        is_open = _OPEN_STATUS in lifecycle
+        is_closed = _CLOSED_STATUS in lifecycle
         if not (is_open or is_closed):
             continue
 
@@ -92,7 +135,8 @@ def parse_sitra_html(
         if not is_open:
             continue
 
-        canonical_call_url = heading_link(heading, source_url) or source_url
+        details = normalize_text(card.get_text(" ", strip=True))
+        canonical_call_url = _call_url(heading, card, source_url)
         deadline = parse_explicit_finnish_datetime(details, timezone)
         relevance_reason = (
             "Sitra-liiketoimintasäännön mukaan kaikki avoimet rahoitushaut ovat relevantteja."
@@ -100,7 +144,7 @@ def parse_sitra_html(
         evidence = (
             Evidence(
                 section="Sitra funding call listing",
-                text=normalize_text(f"{title} {details}"),
+                text=details,
                 source_url=HttpUrl(canonical_call_url),
             ),
         )
@@ -124,8 +168,8 @@ def parse_sitra_html(
 
     if recognized == 0:
         raise SitraListingStructureError(
-            "Sitra page loaded, but no funding-call status blocks were recognized. "
-            "Treat this as a possible source-structure change."
+            "Sitra page loaded, but no funding-call status blocks could be associated with "
+            "individual funding-card headings. Treat this as a possible source-structure change."
         )
 
     if not calls:
