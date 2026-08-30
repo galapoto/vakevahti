@@ -5,18 +5,17 @@ from app.scanners.registry import UnknownFundingSourceError, build_scanners
 
 
 def test_enabled_source_codes_normalize_and_deduplicate_config() -> None:
-    settings = Settings(enabled_sources=" stm, STM ")
+    settings = Settings(enabled_sources=" stm, STM, sitra, academy, SITRA ")
 
-    assert settings.enabled_source_codes == ("STM",)
+    assert settings.enabled_source_codes == ("STM", "SITRA", "ACADEMY")
 
 
-def test_registry_builds_configured_stm_adapter() -> None:
-    settings = Settings(enabled_sources="STM")
+def test_registry_builds_configured_source_adapters_in_order() -> None:
+    settings = Settings(enabled_sources="STM,SITRA,ACADEMY")
 
     scanners = build_scanners(settings)
 
-    assert len(scanners) == 1
-    assert scanners[0].source_code == "STM"
+    assert [scanner.source_code for scanner in scanners] == ["STM", "SITRA", "ACADEMY"]
 
 
 def test_registry_rejects_unregistered_source() -> None:
