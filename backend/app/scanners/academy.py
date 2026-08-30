@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 import httpx
 from bs4 import BeautifulSoup, Tag
@@ -32,7 +33,7 @@ def _call_segment(heading: Tag) -> str:
     return normalize_text(" ".join(parts))
 
 
-def _deadline_from_details(details: str, timezone: str):
+def _deadline_from_details(details: str, timezone: str) -> datetime | None:
     match = _DEADLINE_LINE.search(details)
     if match is None:
         return None
