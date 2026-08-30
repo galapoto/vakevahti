@@ -85,6 +85,10 @@ async def run_source_ingestion(
     The RUNNING audit row is committed before network I/O. Persistence and the
     SUCCEEDED audit update are committed together. A source/parsing/persistence
     exception records a FAILED run and is re-raised to the caller.
+
+    A scanner may legitimately return zero candidates after recognizing its source
+    structure. The adapter's explicit source code is therefore passed to persistence
+    so an empty successful snapshot can still advance current-source membership.
     """
 
     run_id = uuid4()
@@ -114,6 +118,7 @@ async def run_source_ingestion(
                 persistence = await persist_candidates(
                     session,
                     candidates,
+                    source_code=scanner.source_code,
                     observed_at=persistence_observed_at,
                 )
 
