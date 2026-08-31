@@ -6,11 +6,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.api.preview_routes import router as preview_api_router
 from app.api.routes import router as api_router
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.dashboard import DASHBOARD_HTML
+from app.ui.theme import apply_dashboard_theme
 
 
 def create_app(
@@ -23,7 +25,7 @@ def create_app(
     settings = runtime_settings or get_settings()
     owned_engine: AsyncEngine | None = None
 
-    if session_factory is None:
+    if not settings.dashboard_preview_mode and session_factory is None:
         owned_engine = create_engine(settings)
         session_factory = create_session_factory(owned_engine)
 
@@ -37,18 +39,26 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.3.0",
+        version="0.4.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
     application.state.session_factory = session_factory
-    application.include_router(api_router)
+    selected_router = preview_api_router if settings.dashboard_preview_mode else api_router
+    application.include_router(selected_router)
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard() -> HTMLResponse:
-        """Development dashboard for demonstrating currently implemented capabilities."""
+        """Serve the operator dashboard without triggering source scans."""
 
-        return HTMLResponse(DASHBOARD_HTML)
+        html = apply_dashboard_theme(DASHBOARD_HTML)
+        if settings.dashboard_preview_mode:
+            html = html.replace(
+                "Tallennettu tilannekuva",
+                "Kehitysesikatselu · fixture-data",
+                1,
+            )
+        return HTMLResponse(html)
 
     @application.get("/health/live", tags=["health"])
     async def live() -> dict[str, str]:
@@ -58,7 +68,7 @@ def create_app(
 
     @application.get("/api/demo/stm-calls", tags=["demo"])
     async def demo_stm_calls() -> dict[str, object]:
-        """Run the real STM adapter and return validated calls for the development UI."""
+        """Run the real STM adapter and return validated calls for engineering diagnostics."""
 
         try:
             calls = await STMScanner(settings).scan()

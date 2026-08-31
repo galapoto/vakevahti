@@ -27,6 +27,7 @@ class Settings(BaseSettings):
         "postgresql+asyncpg://vakevahti:vakevahti@localhost:5432/vakevahti"
     )
     enabled_sources: str = "STM"
+    dashboard_preview_mode: bool = False
     scan_interval_minutes: int = Field(default=60, ge=5, le=1440)
     scan_run_on_startup: bool = True
 
