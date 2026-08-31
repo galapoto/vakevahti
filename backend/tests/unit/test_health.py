@@ -1,10 +1,16 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.config import Settings
+from app.main import create_app
+
+
+def _normal_client() -> TestClient:
+    app = create_app(Settings(dashboard_preview_mode=False))
+    return TestClient(app)
 
 
 def test_dashboard_is_served() -> None:
-    client = TestClient(app)
+    client = _normal_client()
 
     response = client.get("/")
 
@@ -15,7 +21,7 @@ def test_dashboard_is_served() -> None:
 
 
 def test_dashboard_uses_persisted_read_contracts_not_live_demo_scan() -> None:
-    client = TestClient(app)
+    client = _normal_client()
 
     response = client.get("/")
 
@@ -27,7 +33,7 @@ def test_dashboard_uses_persisted_read_contracts_not_live_demo_scan() -> None:
 
 
 def test_dashboard_cards_are_interactive_source_aware_and_linked() -> None:
-    client = TestClient(app)
+    client = _normal_client()
 
     response = client.get("/")
 
@@ -57,7 +63,7 @@ def test_dashboard_cards_are_interactive_source_aware_and_linked() -> None:
 
 
 def test_liveness_endpoint() -> None:
-    client = TestClient(app)
+    client = _normal_client()
 
     response = client.get("/health/live")
 
