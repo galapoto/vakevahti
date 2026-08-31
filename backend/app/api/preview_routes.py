@@ -82,7 +82,13 @@ async def funding_calls(
         for call in _PREVIEW_CALLS
         if normalized_source is None or call.source_code == normalized_source
     ]
-    records.sort(key=lambda call: (call.application_deadline_at or datetime.max.replace(tzinfo=timezone.utc), call.id))
+    latest_possible = datetime.max.replace(tzinfo=timezone.utc)
+    records.sort(
+        key=lambda call: (
+            call.application_deadline_at or latest_possible,
+            call.id,
+        )
+    )
     page = records[offset : offset + limit]
     return FundingCallListResponse(
         total=len(records),
