@@ -2,6 +2,10 @@
 
 Engineering lessons and interview preparation are written while the system is built.
 
+**Primary teaching lens: Data Engineering.** For DE-relevant slices, the majority of teaching, assignments and interview preparation should focus on data flow, SQL, relational/data modelling, data quality, lineage/provenance, idempotency, orchestration, transactions, schema evolution, observability and data serving. See the authoritative mentoring contract below.
+
+- `DATA_ENGINEERING_FIRST_MENTORING_CONTRACT.md`: authoritative Data Engineering-first teaching, modelling, SQL, pipeline, quality, lineage, orchestration and interview-assignment rules for VakeVahti
+- `GITHUB_PROJECT_DATA_ENGINEERING_TEMPLATE.md`: reusable Data Engineering-first mentoring template to copy/adapt into future GitHub repositories
 - `BUILD_LESSONS_AND_INTERVIEW_BANK.md`: accumulated project-wide lessons through Milestone 3
 - `milestone-4-source-registry.md`: configurable multi-source orchestration lessons
 - `milestone-4-source-adapters.md`: Sitra and Suomen Akatemia adapter design, data quality and technical/interview Q&A
