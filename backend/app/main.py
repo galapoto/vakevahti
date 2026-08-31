@@ -12,6 +12,7 @@ from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.dashboard import DASHBOARD_HTML
+from app.ui.theme import apply_dashboard_theme
 
 
 def create_app(
@@ -50,7 +51,7 @@ def create_app(
     async def dashboard() -> HTMLResponse:
         """Serve the operator dashboard without triggering source scans."""
 
-        html = DASHBOARD_HTML
+        html = apply_dashboard_theme(DASHBOARD_HTML)
         if settings.dashboard_preview_mode:
             html = html.replace(
                 "Tallennettu tilannekuva",
