@@ -62,6 +62,22 @@ def test_dashboard_cards_are_interactive_source_aware_and_linked() -> None:
     assert 'aria-controls' in html
 
 
+def test_dashboard_uses_vake_branding_finnish_status_and_relevance_copy() -> None:
+    client = _normal_client()
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.text
+    assert "VakeHyvälle sopivat rahoitushaut" in html
+    assert "VakeHyvän kuutiosydän" in html
+    assert "Miksi VakeHyvälle" in html
+    assert 'SUCCEEDED: "Onnistunut"' in html
+    assert 'FAILED: "Epäonnistunut"' in html
+    assert 'addFact(facts, "Viimeisen ajon tila", scanStatusLabel(item.latest_scan_status))' in html
+    assert "VV</div>" not in html
+
+
 def test_liveness_endpoint() -> None:
     client = _normal_client()
 
