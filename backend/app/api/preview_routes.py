@@ -28,6 +28,20 @@ _SOURCE_URLS = {
     "ACADEMY": "https://www.aka.fi/tutkimusrahoitus/hae-rahoitusta/haut/",
 }
 _SOURCE_COUNTS = {"STM": 9, "SITRA": 1, "ACADEMY": 7}
+_SOURCE_REASONS = {
+    "STM": (
+        "Esimerkkiperustelu: haku kuuluu VakeHyvän seurattaviin valtionavustuksiin ja voi "
+        "tukea hyvinvointialueen kehittämistä tai palvelujen uudistamista."
+    ),
+    "SITRA": (
+        "Esimerkkiperustelu: haku liittyy julkisen sektorin uudistamiseen ja tarjoaa "
+        "VakeHyvälle mahdollisuuden kehittää toimintaa yhteistyön ja uuden osaamisen avulla."
+    ),
+    "ACADEMY": (
+        "Esimerkkiperustelu: haku voi tukea VakeHyvän tutkimus-, kehittämis- tai "
+        "yhteistyötavoitteita hyvinvointialueen toimintaympäristössä."
+    ),
+}
 _OBSERVED_AT = datetime(2026, 8, 30, 16, 51, tzinfo=UTC)
 
 
@@ -48,6 +62,7 @@ def _preview_calls() -> tuple[FundingCallDetail, ...]:
                     application_opens_at=None,
                     application_deadline_at=deadline,
                     relevance_status="RELEVANT",
+                    relevance_reason=_SOURCE_REASONS[source_code],
                     current_version=1,
                     first_seen_at=_OBSERVED_AT,
                     last_seen_at=_OBSERVED_AT,
@@ -55,7 +70,6 @@ def _preview_calls() -> tuple[FundingCallDetail, ...]:
                         "Kehitysesikatselun fixture-dataa. Tätä tietuetta käytetään vain "
                         "käyttöliittymän testaamiseen ilman PostgreSQL-tietokantaa."
                     ),
-                    relevance_reason="Preview fixture; ei tuotantodataa.",
                     evidence=[{"kind": "preview_fixture", "synthetic": True}],
                 )
             )
