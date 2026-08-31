@@ -43,7 +43,8 @@ def create_app(
     )
     application.state.settings = settings
     application.state.session_factory = session_factory
-    application.include_router(preview_api_router if settings.dashboard_preview_mode else api_router)
+    selected_router = preview_api_router if settings.dashboard_preview_mode else api_router
+    application.include_router(selected_router)
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard() -> HTMLResponse:
