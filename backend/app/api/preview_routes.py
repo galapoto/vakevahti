@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -28,7 +28,7 @@ _SOURCE_URLS = {
     "ACADEMY": "https://www.aka.fi/tutkimusrahoitus/hae-rahoitusta/haut/",
 }
 _SOURCE_COUNTS = {"STM": 9, "SITRA": 1, "ACADEMY": 7}
-_OBSERVED_AT = datetime(2026, 8, 30, 16, 51, tzinfo=timezone.utc)
+_OBSERVED_AT = datetime(2026, 8, 30, 16, 51, tzinfo=UTC)
 
 
 def _preview_calls() -> tuple[FundingCallDetail, ...]:
@@ -82,7 +82,7 @@ async def funding_calls(
         for call in _PREVIEW_CALLS
         if normalized_source is None or call.source_code == normalized_source
     ]
-    latest_possible = datetime.max.replace(tzinfo=timezone.utc)
+    latest_possible = datetime.max.replace(tzinfo=UTC)
     records.sort(
         key=lambda call: (
             call.application_deadline_at or latest_possible,
