@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Identity,
@@ -29,6 +30,13 @@ class FundingCallRecord(Base):
             "external_key",
             name="uq_funding_calls_source_external_key",
         ),
+        Index(
+            "ix_funding_calls_source_snapshot_relevance",
+            "source_code",
+            "last_seen_at",
+            "relevance_status",
+        ),
+        Index("ix_funding_calls_deadline_on", "application_deadline_on"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -36,9 +44,11 @@ class FundingCallRecord(Base):
     external_key: Mapped[str] = mapped_column(String(256), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    application_opens_on: Mapped[date | None] = mapped_column(Date(), nullable=True)
     application_opens_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    application_deadline_on: Mapped[date | None] = mapped_column(Date(), nullable=True)
     application_deadline_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
