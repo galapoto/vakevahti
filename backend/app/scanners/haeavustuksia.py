@@ -1,7 +1,7 @@
 import asyncio
 import re
 from collections.abc import Awaitable, Callable
-from datetime import datetime
+from datetime import date, datetime
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -19,6 +19,7 @@ from app.scanners.common import (
     canonical_url,
     normalize_text,
     parse_explicit_finnish_datetime,
+    parse_finnish_date,
     stable_external_key,
 )
 
@@ -128,24 +129,28 @@ def _section_after_heading(root: Tag | BeautifulSoup, heading_text: str) -> str 
 def _application_window(
     text: str,
     timezone: str,
-) -> tuple[datetime | None, datetime | None]:
-    """Parse only explicitly timed opening/deadline values from the Hakuaika segment."""
+) -> tuple[date | None, datetime | None, date | None, datetime | None]:
+    """Preserve both calendar-date and exact-time precision from the Hakuaika segment."""
 
     folded = text.casefold()
     start = folded.find("hakuaika")
     if start < 0:
-        return None, None
+        return None, None, None, None
 
     window = text[start : start + 500]
+    opens_on = parse_finnish_date(window)
     opens_at = parse_explicit_finnish_datetime(window, timezone)
 
     window_folded = window.casefold()
     deadline_start = window_folded.find("päätt")
+    deadline_on = None
     deadline_at = None
     if deadline_start >= 0:
-        deadline_at = parse_explicit_finnish_datetime(window[deadline_start:], timezone)
+        deadline_segment = window[deadline_start:]
+        deadline_on = parse_finnish_date(deadline_segment)
+        deadline_at = parse_explicit_finnish_datetime(deadline_segment, timezone)
 
-    return opens_at, deadline_at
+    return opens_on, opens_at, deadline_on, deadline_at
 
 
 def _classify_eligibility(section: str | None) -> tuple[RelevanceStatus, str, str | None]:
@@ -207,7 +212,7 @@ def parse_haeavustuksia_detail_html(
         raise SourceStructureError(f"Haeavustuksia call URL has no stable call id: {call_url}")
 
     full_text = normalize_text(root.get_text(" ", strip=True))
-    opens_at, deadline_at = _application_window(full_text, timezone)
+    opens_on, opens_at, deadline_on, deadline_at = _application_window(full_text, timezone)
     eligibility = _section_after_heading(root, _ELIGIBILITY_HEADING)
     status, reason, matched_term = _classify_eligibility(eligibility)
 
@@ -241,7 +246,9 @@ def parse_haeavustuksia_detail_html(
         source_code="HAEAVUSTUKSIA",
         title=title,
         source_url=HttpUrl(call_url),
+        application_opens_on=opens_on,
         application_opens_at=opens_at,
+        application_deadline_on=deadline_on,
         application_deadline_at=deadline_at,
         description_text=eligibility or None,
         relevance_status=status,
