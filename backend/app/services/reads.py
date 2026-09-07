@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.db.models import FundingCallRecord, SourceScanRun, SourceState
+from app.domain.funding_call import RelevanceStatus
 from app.services.ingestion import ScanRunStatus
 
 
@@ -56,6 +57,12 @@ def _current_membership_condition() -> ColumnElement[bool]:
     return FundingCallRecord.last_seen_at == SourceState.last_successful_scan_at
 
 
+def _operator_visible_condition() -> ColumnElement[bool]:
+    """Hide proven non-relevant calls while retaining them in PostgreSQL for audit."""
+
+    return FundingCallRecord.relevance_status != RelevanceStatus.NOT_RELEVANT.value
+
+
 async def list_funding_calls(
     session: AsyncSession,
     *,
@@ -63,9 +70,12 @@ async def list_funding_calls(
     limit: int,
     offset: int,
 ) -> FundingCallPage:
-    """Return a stable bounded page from each source's latest successful snapshot."""
+    """Return current RELEVANT/NEEDS_REVIEW calls from the latest good snapshots."""
 
-    filters: list[ColumnElement[bool]] = [_current_membership_condition()]
+    filters: list[ColumnElement[bool]] = [
+        _current_membership_condition(),
+        _operator_visible_condition(),
+    ]
     normalized_source = source_code.strip().upper() if source_code else None
     if normalized_source:
         filters.append(FundingCallRecord.source_code == normalized_source)
@@ -98,7 +108,7 @@ async def get_funding_call(
     session: AsyncSession,
     funding_call_id: int,
 ) -> FundingCallRecord | None:
-    """Read one call only if it belongs to its source's latest successful snapshot."""
+    """Read an operator-visible call only from its source's latest good snapshot."""
 
     statement = (
         select(FundingCallRecord)
@@ -106,6 +116,7 @@ async def get_funding_call(
         .where(
             FundingCallRecord.id == funding_call_id,
             _current_membership_condition(),
+            _operator_visible_condition(),
         )
     )
     return (await session.scalars(statement)).one_or_none()
@@ -138,8 +149,9 @@ async def list_source_health(
 
     The configured source list defines which adapters are expected to operate in this
     process. PostgreSQL remains the source of truth for their latest persisted state.
-    Current-call counts include only records observed in each source's latest successful
-    snapshot, so disappeared calls remain historical but no longer inflate the operator view.
+    Current-call counts represent operator-visible RELEVANT/NEEDS_REVIEW records in each
+    source's latest successful snapshot. Proven NOT_RELEVANT records stay retained for
+    lineage/audit but do not inflate the opportunity view.
     """
 
     normalized_codes = tuple(dict.fromkeys(code.strip().upper() for code in source_codes))
@@ -173,6 +185,7 @@ async def list_source_health(
         .where(
             FundingCallRecord.source_code.in_(normalized_codes),
             _current_membership_condition(),
+            _operator_visible_condition(),
         )
         .group_by(FundingCallRecord.source_code)
     )
