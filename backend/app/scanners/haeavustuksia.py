@@ -1,6 +1,7 @@
 import asyncio
 import re
 from collections.abc import Awaitable, Callable
+from datetime import datetime
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
@@ -124,7 +125,10 @@ def _section_after_heading(root: Tag | BeautifulSoup, heading_text: str) -> str 
     return value or None
 
 
-def _application_window(text: str, timezone: str) -> tuple[object | None, object | None]:
+def _application_window(
+    text: str,
+    timezone: str,
+) -> tuple[datetime | None, datetime | None]:
     """Parse only explicitly timed opening/deadline values from the Hakuaika segment."""
 
     folded = text.casefold()
