@@ -93,6 +93,7 @@ async def list_funding_calls(
         .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
         .where(*filters)
         .order_by(
+            FundingCallRecord.application_deadline_on.asc().nulls_last(),
             FundingCallRecord.application_deadline_at.asc().nulls_last(),
             FundingCallRecord.id.asc(),
         )
