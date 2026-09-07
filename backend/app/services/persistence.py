@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 
 from sqlalchemy import select, text
@@ -41,6 +41,14 @@ class PersistBatchResult:
     @property
     def changed_count(self) -> int:
         return sum(outcome.status is ChangeStatus.CHANGED for outcome in self.outcomes)
+
+
+def _known_date(explicit_date: date | None, exact_time: datetime | None) -> date | None:
+    """Preserve explicit date precision and derive the local date of an exact timestamp."""
+
+    if explicit_date is not None:
+        return explicit_date
+    return exact_time.date() if exact_time is not None else None
 
 
 def _resolve_source_code(
@@ -86,7 +94,15 @@ async def _serialize_source_transaction(session: AsyncSession, source_code: str)
 def _apply_candidate(record: FundingCallRecord, candidate: FundingCallCandidate) -> None:
     record.title = candidate.title
     record.source_url = str(candidate.source_url)
+    record.application_opens_on = _known_date(
+        candidate.application_opens_on,
+        candidate.application_opens_at,
+    )
     record.application_opens_at = candidate.application_opens_at
+    record.application_deadline_on = _known_date(
+        candidate.application_deadline_on,
+        candidate.application_deadline_at,
+    )
     record.application_deadline_at = candidate.application_deadline_at
     record.description_text = candidate.description_text
     record.relevance_status = candidate.relevance_status.value
@@ -147,7 +163,15 @@ async def persist_candidates(
                 external_key=candidate.external_key,
                 title=candidate.title,
                 source_url=str(candidate.source_url),
+                application_opens_on=_known_date(
+                    candidate.application_opens_on,
+                    candidate.application_opens_at,
+                ),
                 application_opens_at=candidate.application_opens_at,
+                application_deadline_on=_known_date(
+                    candidate.application_deadline_on,
+                    candidate.application_deadline_at,
+                ),
                 application_deadline_at=candidate.application_deadline_at,
                 description_text=candidate.description_text,
                 relevance_status=candidate.relevance_status.value,
