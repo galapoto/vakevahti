@@ -12,7 +12,12 @@ from pydantic import HttpUrl
 
 from app.config import Settings
 from app.domain.funding_call import Evidence, FundingCallCandidate, RelevanceStatus
-from app.scanners.common import SourceStructureError, canonical_url, normalize_text, stable_external_key
+from app.scanners.common import (
+    SourceStructureError,
+    canonical_url,
+    normalize_text,
+    stable_external_key,
+)
 
 EuraHtmlRenderer = Callable[[], Awaitable[str]]
 
@@ -273,16 +278,18 @@ async def _render_listing_html(
     timeout_seconds: float,
 ) -> str:
     timeout_ms = max(1, int(timeout_seconds * 1000))
+    selector_probe = (
+        "document.querySelectorAll("
+        "'a[href*=\"/hakuilmoitukset/hakuilmoitus/\"]'"
+        ").length > 0"
+    )
     try:
         async with async_playwright() as playwright:
             browser = await playwright.chromium.launch(headless=True)
             try:
                 page = await browser.new_page(user_agent=user_agent)
                 await page.goto(source_url, wait_until="domcontentloaded", timeout=timeout_ms)
-                await page.wait_for_function(
-                    "document.querySelectorAll('a[href*=\"/hakuilmoitukset/hakuilmoitus/\"]').length > 0",
-                    timeout=timeout_ms,
-                )
+                await page.wait_for_function(selector_probe, timeout=timeout_ms)
 
                 previous = -1
                 stable_rounds = 0
