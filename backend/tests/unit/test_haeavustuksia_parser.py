@@ -35,7 +35,10 @@ def test_positive_public_entity_term_is_relevant_and_evidenced() -> None:
       <p>Hakuaika on alkanut 1.9.2026 klo 08.00 ja päättyy 30.9.2026 klo 16.15</p>
       <h2>Myöntöperusteet</h2>
       <h3>Kenelle/mille avustusta voidaan myöntää</h3>
-      <p>Avustusta voidaan myöntää hyvinvointialueelle tai muulle julkisoikeudelliselle yhteisölle.</p>
+      <p>
+        Avustusta voidaan myöntää hyvinvointialueelle tai muulle
+        julkisoikeudelliselle yhteisölle.
+      </p>
       <h3>Mihin käyttötarkoituksiin avustusta voidaan myöntää</h3>
       <p>Kehittämiseen.</p>
     </main>
