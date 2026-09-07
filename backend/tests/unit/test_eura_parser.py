@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from app.domain.funding_call import RelevanceStatus
@@ -30,6 +32,10 @@ def test_target_region_plus_wellbeing_evidence_is_relevant() -> None:
     <main>
       <h1>Etelä-Suomen hyvinvoinnin kehittämishaku</h1>
       <p>Hakuilmoituksen tunnus TEST-1</p>
+      <div>Alkaa</div>
+      <div>1.9.2026</div>
+      <div>Päättyy</div>
+      <div>30.9.2026</div>
       <div>Haun kohdealue</div>
       <div>Etelä-Suomi</div>
       <div>Maakunnat</div>
@@ -52,7 +58,12 @@ def test_target_region_plus_wellbeing_evidence_is_relevant() -> None:
     assert call.source_code == "EURA"
     assert call.relevance_status is RelevanceStatus.RELEVANT
     assert "hyvinvointialue" in call.relevance_reason.casefold()
+    assert call.application_opens_on == date(2026, 9, 1)
+    assert call.application_opens_at is None
+    assert call.application_deadline_on == date(2026, 9, 30)
+    assert call.application_deadline_at is None
     assert any(item.section == "Haun kohdealue" for item in call.evidence)
+    assert any(item.section == "Hakuaika" for item in call.evidence)
 
 
 def test_out_of_scope_region_is_not_relevant_even_if_text_mentions_public_actor() -> None:
