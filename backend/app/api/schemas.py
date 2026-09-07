@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -16,7 +16,9 @@ class FundingCallListItem(BaseModel):
     source_code: str
     title: str
     source_url: str
+    application_opens_on: date | None
     application_opens_at: datetime | None
+    application_deadline_on: date | None
     application_deadline_at: datetime | None
     relevance_status: str
     current_version: int
