@@ -5,7 +5,7 @@ import httpx
 import pytest
 from pydantic import HttpUrl
 from sqlalchemy import func, select, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import Settings
 from app.db.models import FundingCallRecord
