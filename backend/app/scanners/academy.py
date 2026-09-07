@@ -1,5 +1,5 @@
 import re
-from datetime import datetime
+from datetime import date, datetime
 
 import httpx
 from bs4 import BeautifulSoup, Tag
@@ -12,11 +12,13 @@ from app.scanners.common import (
     heading_link,
     normalize_text,
     parse_explicit_finnish_datetime,
+    parse_finnish_date,
     stable_external_key,
 )
 
 _START_SECTION = "avoimet ja tulossa olevat haut"
 _END_SECTIONS = {"valmistelussa olevat haut", "päättyneet haut"}
+_OPEN_LINE = re.compile(r"haku alkaa", re.IGNORECASE)
 _DEADLINE_LINE = re.compile(r"haku päättyy", re.IGNORECASE)
 
 
@@ -31,6 +33,13 @@ def _call_segment(heading: Tag) -> str:
             parts.append(text)
         node = node.find_next_sibling()
     return normalize_text(" ".join(parts))
+
+
+def _date_from_marker(details: str, pattern: re.Pattern[str]) -> date | None:
+    match = pattern.search(details)
+    if match is None:
+        return None
+    return parse_finnish_date(details[match.start() :])
 
 
 def _deadline_from_details(details: str, timezone: str) -> datetime | None:
@@ -83,7 +92,9 @@ def parse_academy_html(
             continue
 
         canonical_call_url = heading_link(heading, source_url) or source_url
-        deadline = _deadline_from_details(details, timezone)
+        opens_on = _date_from_marker(details, _OPEN_LINE)
+        deadline_on = _date_from_marker(details, _DEADLINE_LINE)
+        deadline_at = _deadline_from_details(details, timezone)
         relevance_reason = (
             "Suomen Akatemia -liiketoimintasäännön mukaan kaikki avoimet ja tulossa "
             "olevat haut ovat relevantteja."
@@ -105,7 +116,9 @@ def parse_academy_html(
                 source_code="ACADEMY",
                 title=title,
                 source_url=HttpUrl(canonical_call_url),
-                application_deadline_at=deadline,
+                application_opens_on=opens_on,
+                application_deadline_on=deadline_on,
+                application_deadline_at=deadline_at,
                 description_text=details,
                 relevance_status=RelevanceStatus.RELEVANT,
                 relevance_reason=relevance_reason,
