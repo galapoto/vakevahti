@@ -16,6 +16,7 @@ from app.scanners.common import (
     SourceStructureError,
     canonical_url,
     normalize_text,
+    parse_finnish_date,
     stable_external_key,
 )
 
@@ -91,6 +92,14 @@ def _lines(root: Tag | BeautifulSoup) -> list[str]:
         for raw in root.stripped_strings
         if (normalized := normalize_text(str(raw)))
     ]
+
+
+def _scalar_after_label(lines: list[str], label: str) -> str | None:
+    folded_label = label.casefold().rstrip(":")
+    for index, line in enumerate(lines[:-1]):
+        if line.casefold().rstrip(":") == folded_label:
+            return lines[index + 1]
+    return None
 
 
 def _extract_block(
@@ -215,6 +224,11 @@ def parse_eura_detail_html(html: str, notice_url: str) -> FundingCallCandidate:
             f"EURA notice {notice_url} did not expose the required 'Haun kohdealue' block."
         )
 
+    opens_text = _scalar_after_label(lines, "Alkaa")
+    deadline_text = _scalar_after_label(lines, "Päättyy")
+    opens_on = parse_finnish_date(opens_text) if opens_text else None
+    deadline_on = parse_finnish_date(deadline_text) if deadline_text else None
+
     description = _description_block(lines)
     additional_info = _additional_info_block(lines)
     status, reason, matched_term = _classify_eligibility(
@@ -230,6 +244,16 @@ def parse_eura_detail_html(html: str, notice_url: str) -> FundingCallCandidate:
             source_url=HttpUrl(notice_url),
         )
     ]
+    if opens_text or deadline_text:
+        evidence.append(
+            Evidence(
+                section="Hakuaika",
+                text=normalize_text(
+                    f"Alkaa {opens_text or 'ei tietoa'}; Päättyy {deadline_text or 'ei tietoa'}"
+                ),
+                source_url=HttpUrl(notice_url),
+            )
+        )
     if description:
         evidence.append(
             Evidence(
@@ -264,6 +288,8 @@ def parse_eura_detail_html(html: str, notice_url: str) -> FundingCallCandidate:
         source_code="EURA",
         title=title,
         source_url=HttpUrl(notice_url),
+        application_opens_on=opens_on,
+        application_deadline_on=deadline_on,
         description_text=description_text,
         relevance_status=status,
         relevance_reason=reason,
