@@ -19,6 +19,7 @@ class FundingCallListItem(BaseModel):
     application_opens_at: datetime | None
     application_deadline_at: datetime | None
     relevance_status: str
+    relevance_reason: str
     current_version: int
     first_seen_at: datetime
     last_seen_at: datetime
@@ -26,7 +27,6 @@ class FundingCallListItem(BaseModel):
 
 class FundingCallDetail(FundingCallListItem):
     description_text: str | None
-    relevance_reason: str
     evidence: list[dict[str, Any]]
 
 

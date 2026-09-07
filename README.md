@@ -2,6 +2,8 @@
 
 VakeVahti is an internal funding-opportunity monitoring and workflow product being built as a real workplace system, graduation project, and data-engineering/software-engineering portfolio project.
 
+**Primary learning/career lens: Data Engineering.** The project should be taught mainly through data pipelines, SQL, relational/data modelling, data quality, lineage/provenance, idempotency, orchestration, transactions, schema evolution, observability and data serving. Backend, frontend, security, DevOps and AI topics remain important when relevant, but should be connected back to the data product wherever that connection is real.
+
 It remains independently runnable now, but its architecture is being kept extraction-ready so it can later live under the Vaketomate automation platform without rewriting the funding domain.
 
 ## Current implemented flow
@@ -112,12 +114,15 @@ Read before substantial changes:
 
 - [`AGENTS.md`](AGENTS.md)
 - [`docs/LEARNING_AND_ENGINEERING_CHARTER.md`](docs/LEARNING_AND_ENGINEERING_CHARTER.md)
+- [`docs/learning/DATA_ENGINEERING_FIRST_MENTORING_CONTRACT.md`](docs/learning/DATA_ENGINEERING_FIRST_MENTORING_CONTRACT.md)
+- [`docs/learning/GITHUB_PROJECT_DATA_ENGINEERING_TEMPLATE.md`](docs/learning/GITHUB_PROJECT_DATA_ENGINEERING_TEMPLATE.md) — reusable template for future GitHub projects
 - [`docs/architecture/VAKETOMATE_INTEGRATION_CONTRACT.md`](docs/architecture/VAKETOMATE_INTEGRATION_CONTRACT.md)
 - [`SECURITY.md`](SECURITY.md)
 
 The continually maintained learning/interview record is:
 
 - [`docs/learning/BUILD_LESSONS_AND_INTERVIEW_BANK.md`](docs/learning/BUILD_LESSONS_AND_INTERVIEW_BANK.md)
+- [`docs/learning/milestone-6-technical-assignments.md`](docs/learning/milestone-6-technical-assignments.md)
 
 ## Vaketomate direction
 
