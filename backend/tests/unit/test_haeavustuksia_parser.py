@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from app.domain.funding_call import RelevanceStatus
@@ -52,12 +54,36 @@ def test_positive_public_entity_term_is_relevant_and_evidenced() -> None:
     assert call.source_code == "HAEAVUSTUKSIA"
     assert call.relevance_status is RelevanceStatus.RELEVANT
     assert "hyvinvointialue" in call.relevance_reason.casefold()
+    assert call.application_opens_on == date(2026, 9, 1)
     assert call.application_opens_at is not None
+    assert call.application_deadline_on == date(2026, 9, 30)
     assert call.application_deadline_at is not None
     assert any(
         item.section == "Kenelle/mille avustusta voidaan myöntää"
         for item in call.evidence
     )
+
+
+def test_date_only_window_is_preserved_without_invented_time() -> None:
+    html = """
+    <main>
+      <h1>Päivämäärätarkkuuden testihaku</h1>
+      <p>Hakuaika alkaa 2.10.2026 ja päättyy 30.10.2026</p>
+      <h2>Kenelle/mille avustusta voidaan myöntää</h2>
+      <p>Avustusta voidaan myöntää julkiselle organisaatiolle.</p>
+      <h2>Mihin avustusta voidaan käyttää</h2>
+    </main>
+    """
+
+    call = parse_haeavustuksia_detail_html(
+        html,
+        "https://www.haeavustuksia.fi/fi/haku/va-test-2026-date",
+    )
+
+    assert call.application_opens_on == date(2026, 10, 2)
+    assert call.application_opens_at is None
+    assert call.application_deadline_on == date(2026, 10, 30)
+    assert call.application_deadline_at is None
 
 
 def test_explicit_only_rule_without_positive_term_is_not_relevant() -> None:
