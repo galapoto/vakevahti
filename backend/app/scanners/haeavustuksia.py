@@ -22,21 +22,13 @@ from app.scanners.common import (
     parse_finnish_date,
     stable_external_key,
 )
+from app.scanners.eligibility import match_public_entity_eligibility_term
 
 HaeavustuksiaHtmlRenderer = Callable[[], Awaitable[str]]
 
 _CALL_PATH = re.compile(r"^/fi/haku/(?P<call_id>[^/?#]+)", re.IGNORECASE)
 _HEADING_NAMES = tuple(f"h{level}" for level in range(1, 7))
 _ELIGIBILITY_HEADING = "kenelle/mille avustusta voidaan myöntää"
-_POSITIVE_ELIGIBILITY_TERMS = (
-    "hyvinvointialue",
-    "julkisoikeudellinen yhteisö",
-    "julkinen toimija",
-    "julkinen organisaatio",
-    "julkisyhteisö",
-    "julkinen oikeushenkilö",
-    "valtionavustuskelpoinen julkisoikeudellinen toimija",
-)
 _EXCLUSIVE_MARKERS = ("ainoastaan", "vain ")
 
 
@@ -162,15 +154,15 @@ def _classify_eligibility(section: str | None) -> tuple[RelevanceStatus, str, st
             None,
         )
 
-    folded = section.casefold()
-    for term in _POSITIVE_ELIGIBILITY_TERMS:
-        if term.casefold() in folded:
-            return (
-                RelevanceStatus.RELEVANT,
-                f"Hakijakelpoisuus sisältää VakeHyvälle soveltuvan ilmauksen: {term}.",
-                term,
-            )
+    matched_term = match_public_entity_eligibility_term(section)
+    if matched_term is not None:
+        return (
+            RelevanceStatus.RELEVANT,
+            f"Hakijakelpoisuus sisältää VakeHyvälle soveltuvan ilmauksen: {matched_term}.",
+            matched_term,
+        )
 
+    folded = section.casefold()
     if any(marker in folded for marker in _EXCLUSIVE_MARKERS):
         return (
             RelevanceStatus.NOT_RELEVANT,

@@ -19,6 +19,7 @@ from app.scanners.common import (
     parse_finnish_date,
     stable_external_key,
 )
+from app.scanners.eligibility import match_public_entity_eligibility_term
 
 EuraHtmlRenderer = Callable[[], Awaitable[str]]
 
@@ -26,15 +27,6 @@ _NOTICE_PATH = re.compile(
     r"^/hakuilmoitukset/hakuilmoitus/(?P<notice_id>[0-9a-fA-F-]{20,})/?$"
 )
 _TARGET_REGIONS = ("valtakunnallinen", "etelä-suomi")
-_POSITIVE_ELIGIBILITY_TERMS = (
-    "hyvinvointialue",
-    "julkisoikeudellinen yhteisö",
-    "julkinen toimija",
-    "julkinen organisaatio",
-    "julkisyhteisö",
-    "julkinen oikeushenkilö",
-    "valtionavustuskelpoinen julkisoikeudellinen toimija",
-)
 
 
 class EuraListingStructureError(SourceStructureError):
@@ -181,15 +173,14 @@ def _classify_eligibility(
         )
 
     corpus = normalize_text(" ".join(part for part in (description, additional_info) if part))
-    folded = corpus.casefold()
-    for term in _POSITIVE_ELIGIBILITY_TERMS:
-        if term.casefold() in folded:
-            return (
-                RelevanceStatus.RELEVANT,
-                f"Kohdealue täsmää ja hakuteksti sisältää VakeHyvälle soveltuvan "
-                f"hakijailmauksen: {term}.",
-                term,
-            )
+    matched_term = match_public_entity_eligibility_term(corpus)
+    if matched_term is not None:
+        return (
+            RelevanceStatus.RELEVANT,
+            f"Kohdealue täsmää ja hakuteksti sisältää VakeHyvälle soveltuvan "
+            f"hakijailmauksen: {matched_term}.",
+            matched_term,
+        )
 
     return (
         RelevanceStatus.NEEDS_REVIEW,
