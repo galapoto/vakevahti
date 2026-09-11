@@ -36,6 +36,8 @@ class SourceHealthSnapshot:
     source_code: str
     health: SourceHealthStatus
     current_call_count: int
+    relevant_call_count: int
+    review_call_count: int
     baseline_completed_at: datetime | None
     last_successful_scan_at: datetime | None
     latest_scan_id: UUID | None
@@ -150,9 +152,10 @@ async def list_source_health(
 
     The configured source list defines which adapters are expected to operate in this
     process. PostgreSQL remains the source of truth for their latest persisted state.
-    Current-call counts represent operator-visible RELEVANT/NEEDS_REVIEW records in each
-    source's latest successful snapshot. Proven NOT_RELEVANT records stay retained for
-    lineage/audit but do not inflate the opportunity view.
+    ``current_call_count`` is the complete operator-visible total, while
+    ``relevant_call_count`` and ``review_call_count`` preserve certainty: confirmed
+    RELEVANT calls are never conflated with NEEDS_REVIEW calls. Proven NOT_RELEVANT
+    records remain retained for lineage/audit but are excluded from all three counts.
     """
 
     normalized_codes = tuple(dict.fromkeys(code.strip().upper() for code in source_codes))
@@ -181,16 +184,30 @@ async def list_source_health(
     }
 
     count_rows = await session.execute(
-        select(FundingCallRecord.source_code, func.count(FundingCallRecord.id))
+        select(
+            FundingCallRecord.source_code,
+            FundingCallRecord.relevance_status,
+            func.count(FundingCallRecord.id),
+        )
         .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
         .where(
             FundingCallRecord.source_code.in_(normalized_codes),
             _current_membership_condition(),
             _operator_visible_condition(),
         )
-        .group_by(FundingCallRecord.source_code)
+        .group_by(FundingCallRecord.source_code, FundingCallRecord.relevance_status)
     )
-    call_counts = {source_code: int(count) for source_code, count in count_rows.all()}
+
+    current_counts: dict[str, int] = {}
+    relevant_counts: dict[str, int] = {}
+    review_counts: dict[str, int] = {}
+    for source_code, relevance_status, raw_count in count_rows.all():
+        count = int(raw_count)
+        current_counts[source_code] = current_counts.get(source_code, 0) + count
+        if relevance_status == RelevanceStatus.RELEVANT.value:
+            relevant_counts[source_code] = count
+        elif relevance_status == RelevanceStatus.NEEDS_REVIEW.value:
+            review_counts[source_code] = count
 
     snapshots: list[SourceHealthSnapshot] = []
     for source_code in normalized_codes:
@@ -200,7 +217,9 @@ async def list_source_health(
             SourceHealthSnapshot(
                 source_code=source_code,
                 health=_health_from_latest_run(latest),
-                current_call_count=call_counts.get(source_code, 0),
+                current_call_count=current_counts.get(source_code, 0),
+                relevant_call_count=relevant_counts.get(source_code, 0),
+                review_call_count=review_counts.get(source_code, 0),
                 baseline_completed_at=state.baseline_completed_at if state else None,
                 last_successful_scan_at=state.last_successful_scan_at if state else None,
                 latest_scan_id=latest.id if latest else None,
