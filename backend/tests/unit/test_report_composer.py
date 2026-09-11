@@ -5,7 +5,14 @@ import pytest
 from app.services.report_composer import ReportFinding, compose_automated_report
 
 
-def _finding(*, call_id: int, title: str, source: str, event: str, review: bool = False) -> ReportFinding:
+def _finding(
+    *,
+    call_id: int,
+    title: str,
+    source: str,
+    event: str,
+    review: bool = False,
+) -> ReportFinding:
     return ReportFinding(
         funding_call_id=call_id,
         source_code=source,
