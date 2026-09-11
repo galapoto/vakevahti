@@ -11,6 +11,7 @@ from app.api.live_test import router as live_test_router
 from app.api.routes import router as api_router
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
+from app.db.startup_migrations import run_startup_migrations
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.dashboard import DASHBOARD_HTML
 from app.ui.dashboard_certainty_filter import render_dashboard_certainty_filter
@@ -35,6 +36,8 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if settings.migrate_database_on_startup:
+            await run_startup_migrations(settings)
         try:
             yield
         finally:
@@ -43,7 +46,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.9.0",
+        version="0.10.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
