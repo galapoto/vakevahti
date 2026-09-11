@@ -45,11 +45,26 @@ _SOURCE_NAMES = {
     "ACADEMY": "Suomen Akatemia",
 }
 _SOURCE_REASONS = {
-    "STM": "Hyvinvointialue kuuluu haun mahdolliseen kohderyhmään ja teema tukee sosiaali- ja terveyspalvelujen kehittämistä.",
-    "HAEAVUSTUKSIA": "Hakuilmoituksessa on julkisen toimijan tai hyvinvointialueen hakukelpoisuutta tukevaa näyttöä.",
-    "EURA": "Haku kohdistuu Etelä-Suomeen tai valtakunnallisesti ja hakijaryhmä voi soveltua hyvinvointialueelle.",
-    "SITRA": "Teema liittyy julkisen sektorin uudistamiseen, yhteistyöhön tai hyvinvointialueen kehittämiseen.",
-    "ACADEMY": "Haku voi tukea VakeHyvän tutkimus-, kehittämis- tai kumppanuustavoitteita.",
+    "STM": (
+        "Hyvinvointialue kuuluu haun mahdolliseen kohderyhmään ja teema tukee "
+        "sosiaali- ja terveyspalvelujen kehittämistä."
+    ),
+    "HAEAVUSTUKSIA": (
+        "Hakuilmoituksessa on julkisen toimijan tai hyvinvointialueen "
+        "hakukelpoisuutta tukevaa näyttöä."
+    ),
+    "EURA": (
+        "Haku kohdistuu Etelä-Suomeen tai valtakunnallisesti ja hakijaryhmä "
+        "voi soveltua hyvinvointialueelle."
+    ),
+    "SITRA": (
+        "Teema liittyy julkisen sektorin uudistamiseen, yhteistyöhön tai "
+        "hyvinvointialueen kehittämiseen."
+    ),
+    "ACADEMY": (
+        "Haku voi tukea VakeHyvän tutkimus-, kehittämis- tai "
+        "kumppanuustavoitteita."
+    ),
 }
 _REVIEW_REASON = (
     "Hakukelpoisuudesta löytyi lupaavia viitteitä, mutta VakeVahti ei pystynyt varmistamaan "
@@ -68,24 +83,32 @@ def _preview_calls() -> tuple[FundingCallDetail, ...]:
         for index in range(1, total + 1):
             needs_review = index > relevant_count
             deadline_date = date(2026, 10, 1) + timedelta(days=index * 4)
+            title = (
+                f"{_SOURCE_NAMES[source_code]} – VakeHyvälle sopiva "
+                f"esimerkkihaku {index}"
+            )
+            relevance_reason = (
+                _REVIEW_REASON if needs_review else _SOURCE_REASONS[source_code]
+            )
             calls.append(
                 FundingCallDetail(
                     id=next_id,
                     source_code=source_code,
-                    title=f"{_SOURCE_NAMES[source_code]} – VakeHyvälle sopiva esimerkkihaku {index}",
+                    title=title,
                     source_url=_SOURCE_URLS[source_code],
                     application_opens_on=date(2026, 9, 1),
                     application_opens_at=None,
                     application_deadline_on=deadline_date,
                     application_deadline_at=None,
                     relevance_status="NEEDS_REVIEW" if needs_review else "RELEVANT",
-                    relevance_reason=_REVIEW_REASON if needs_review else _SOURCE_REASONS[source_code],
+                    relevance_reason=relevance_reason,
                     current_version=1,
                     first_seen_at=_OBSERVED_AT,
                     last_seen_at=_OBSERVED_AT,
                     description_text=(
-                        "Kehitysesikatselun fixture-dataa. Tietuetta käytetään vain VakeVahdin "
-                        "käyttöliittymän ja raportointityönkulun testaamiseen ilman PostgreSQL-yhteyttä."
+                        "Kehitysesikatselun fixture-dataa. Tietuetta käytetään vain "
+                        "VakeVahdin käyttöliittymän ja raportointityönkulun testaamiseen "
+                        "ilman PostgreSQL-yhteyttä."
                     ),
                     evidence=[{"kind": "preview_fixture", "synthetic": True}],
                 )
