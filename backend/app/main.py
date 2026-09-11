@@ -12,6 +12,7 @@ from app.db.session import create_engine, create_session_factory
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.dashboard import DASHBOARD_HTML
 from app.ui.dashboard_customization import render_dashboard_html
+from app.ui.dashboard_date_precision import render_dashboard_date_precision
 
 
 def create_app(
@@ -49,7 +50,8 @@ def create_app(
     async def dashboard() -> HTMLResponse:
         """Serve the persisted employee dashboard without triggering source acquisition."""
 
-        return HTMLResponse(render_dashboard_html(DASHBOARD_HTML))
+        customized = render_dashboard_html(DASHBOARD_HTML)
+        return HTMLResponse(render_dashboard_date_precision(customized))
 
     @application.get("/health/live", tags=["health"])
     async def live() -> dict[str, str]:
