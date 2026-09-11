@@ -108,10 +108,11 @@ async def source_distribution(source_code: str) -> None:
             ).all()
 
         print(f"{source_code} current persisted snapshot: {len(records)} calls")
-        print(
-            "Relevance distribution: "
-            + " ".join(f"{status.value}={counts.get(status.value, 0)}" for status in RelevanceStatus)
+        distribution = " ".join(
+            f"{status.value}={counts.get(status.value, 0)}"
+            for status in RelevanceStatus
         )
+        print(f"Relevance distribution: {distribution}")
         for index, record in enumerate(records, start=1):
             print(f"{index:03d}. [{record.relevance_status}] {record.title}")
             print(f"     {record.relevance_reason}")
