@@ -9,7 +9,25 @@ permissions:
 jobs:
   live-source-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vakevahti
+          POSTGRES_PASSWORD: vakevahti
+          POSTGRES_DB: vakevahti_live_smoke
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vakevahti -d vakevahti_live_smoke"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://vakevahti:vakevahti@127.0.0.1:5432/vakevahti_live_smoke
 
     defaults:
       run:
@@ -32,17 +50,44 @@ jobs:
       - name: Install Chromium fallback
         run: python -m playwright install --with-deps chromium
 
-      - name: Validate Haeavustuksia.fi live
-        shell: bash
-        run: |
-          set -o pipefail
-          python -m app.cli scan-source HAEAVUSTUKSIA | tee ../haeavustuksia-live-smoke.txt
+      - name: Apply ephemeral smoke database migrations
+        run: alembic upgrade head
 
-      - name: Validate EURA 2021 live
+      - name: Haeavustuksia.fi baseline live ingestion
         shell: bash
         run: |
           set -o pipefail
-          python -m app.cli scan-source EURA | tee ../eura-live-smoke.txt
+          python -m app.cli scan-source-persist HAEAVUSTUKSIA | tee ../haeavustuksia-first.txt
+
+      - name: Haeavustuksia.fi repeat/idempotency live ingestion
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m app.cli scan-source-persist HAEAVUSTUKSIA | tee ../haeavustuksia-second.txt
+          grep -q 'baseline=False' ../haeavustuksia-second.txt
+          grep -q 'new=0' ../haeavustuksia-second.txt
+          grep -q 'changed=0' ../haeavustuksia-second.txt
+
+      - name: Haeavustuksia.fi classification evidence
+        run: python -m app.cli source-distribution HAEAVUSTUKSIA | tee ../haeavustuksia-distribution.txt
+
+      - name: EURA 2021 baseline live ingestion
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m app.cli scan-source-persist EURA | tee ../eura-first.txt
+
+      - name: EURA 2021 repeat/idempotency live ingestion
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m app.cli scan-source-persist EURA | tee ../eura-second.txt
+          grep -q 'baseline=False' ../eura-second.txt
+          grep -q 'new=0' ../eura-second.txt
+          grep -q 'changed=0' ../eura-second.txt
+
+      - name: EURA 2021 classification evidence
+        run: python -m app.cli source-distribution EURA | tee ../eura-distribution.txt
 
       - name: Upload live validation evidence
         if: always()
@@ -50,7 +95,11 @@ jobs:
         with:
           name: live-funding-source-smoke-${{ github.run_id }}
           path: |
-            haeavustuksia-live-smoke.txt
-            eura-live-smoke.txt
+            haeavustuksia-first.txt
+            haeavustuksia-second.txt
+            haeavustuksia-distribution.txt
+            eura-first.txt
+            eura-second.txt
+            eura-distribution.txt
           if-no-files-found: warn
           retention-days: 14
