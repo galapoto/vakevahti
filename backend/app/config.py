@@ -39,6 +39,18 @@ class Settings(BaseSettings):
     enable_report_write_routes: bool = False
     automatic_report_enabled: bool = True
     report_email_recipients: str = ""
+    report_email_enabled: bool = False
+    report_email_auto_send: bool = True
+    report_email_from: str = ""
+    smtp_host: str = ""
+    smtp_port: int = Field(default=587, ge=1, le=65535)
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_starttls: bool = True
+    smtp_ssl: bool = False
+    smtp_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
+    report_email_retry_base_minutes: int = Field(default=5, ge=1, le=1440)
+    report_email_retry_max_minutes: int = Field(default=240, ge=1, le=10080)
 
     @property
     def enabled_source_codes(self) -> tuple[str, ...]:
@@ -73,6 +85,16 @@ class Settings(BaseSettings):
             seen.add(lowered)
             recipients.append(value)
         return tuple(recipients)
+
+    @property
+    def smtp_delivery_configured(self) -> bool:
+        """Return whether automatic email has the minimum non-secret transport config."""
+
+        return bool(
+            self.report_email_enabled
+            and self.report_email_from.strip()
+            and self.smtp_host.strip()
+        )
 
 
 @lru_cache
