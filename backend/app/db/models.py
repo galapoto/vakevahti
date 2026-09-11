@@ -133,6 +133,11 @@ class NotificationOutbox(Base):
             "next_attempt_at",
             "created_at",
         ),
+        Index(
+            "ix_notification_outbox_status_claim_expiry",
+            "status",
+            "claim_expires_at",
+        ),
         Index("ix_notification_outbox_scan_run", "source_scan_run_id"),
     )
 
@@ -157,5 +162,10 @@ class NotificationOutbox(Base):
     next_attempt_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    claim_token: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)

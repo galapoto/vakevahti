@@ -10,6 +10,7 @@ from app.domain.funding_call import FundingCallCandidate, RelevanceStatus
 
 class OutboxStatus(StrEnum):
     PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
     SENT = "SENT"
     FAILED = "FAILED"
 
