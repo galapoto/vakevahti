@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     enable_live_test_routes: bool = False
     dashboard_preview_mode: bool = False
     migrate_database_on_startup: bool = False
+    enable_report_write_routes: bool = False
 
     @property
     def enabled_source_codes(self) -> tuple[str, ...]:
