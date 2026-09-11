@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.config import get_settings
 from app.db import models as db_models  # noqa: F401
+from app.db import report_models as db_report_models  # noqa: F401
 from app.db.base import Base
 
 config = context.config
