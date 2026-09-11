@@ -53,6 +53,7 @@ select = ["E", "F", "I", "B", "UP"]
 "app/ui/dashboard_customization.py" = ["E501"]
 "app/ui/dashboard_date_precision.py" = ["E501"]
 "app/ui/dashboard_certainty_filter.py" = ["E501"]
+"app/ui/live_source_test.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
