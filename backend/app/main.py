@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.api.live_test import router as live_test_router
 from app.api.routes import router as api_router
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
@@ -14,6 +15,7 @@ from app.ui.dashboard import DASHBOARD_HTML
 from app.ui.dashboard_certainty_filter import render_dashboard_certainty_filter
 from app.ui.dashboard_customization import render_dashboard_html
 from app.ui.dashboard_date_precision import render_dashboard_date_precision
+from app.ui.live_source_test import LIVE_SOURCE_TEST_HTML
 
 
 def create_app(
@@ -40,12 +42,25 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.7.0",
+        version="0.8.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
     application.state.session_factory = session_factory
     application.include_router(api_router)
+
+    if settings.enable_live_test_routes:
+        application.include_router(live_test_router)
+
+        @application.get(
+            "/test/live-sources",
+            response_class=HTMLResponse,
+            include_in_schema=False,
+        )
+        async def live_source_test_console() -> HTMLResponse:
+            """Serve the database-free live source test console in opt-in environments."""
+
+            return HTMLResponse(LIVE_SOURCE_TEST_HTML)
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard() -> HTMLResponse:
