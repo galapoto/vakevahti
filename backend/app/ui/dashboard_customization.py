@@ -6,9 +6,6 @@ if the shared dashboard structure changes, a missing sentinel raises instead of
 silently serving a partially customized page.
 """
 
-from __future__ import annotations
-
-
 _STYLE_OVERRIDES = r"""
 <style id="vake-m7-overrides">
   :root {
