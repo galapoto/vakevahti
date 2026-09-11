@@ -1,7 +1,8 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
+from uuid import UUID
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import FundingCallRecord, FundingCallVersion, SourceState
 from app.domain.funding_call import FundingCallCandidate
 from app.services.change_detection import candidate_content_hash, candidate_snapshot
+from app.services.notification_outbox import (
+    enqueue_notification_intent,
+    notification_event_type,
+)
 
 
 class ChangeStatus(StrEnum):
@@ -41,6 +46,14 @@ class PersistBatchResult:
     @property
     def changed_count(self) -> int:
         return sum(outcome.status is ChangeStatus.CHANGED for outcome in self.outcomes)
+
+
+def _known_date(explicit_date: date | None, exact_time: datetime | None) -> date | None:
+    """Preserve explicit date precision and derive the local date of an exact timestamp."""
+
+    if explicit_date is not None:
+        return explicit_date
+    return exact_time.date() if exact_time is not None else None
 
 
 def _resolve_source_code(
@@ -86,7 +99,15 @@ async def _serialize_source_transaction(session: AsyncSession, source_code: str)
 def _apply_candidate(record: FundingCallRecord, candidate: FundingCallCandidate) -> None:
     record.title = candidate.title
     record.source_url = str(candidate.source_url)
+    record.application_opens_on = _known_date(
+        candidate.application_opens_on,
+        candidate.application_opens_at,
+    )
     record.application_opens_at = candidate.application_opens_at
+    record.application_deadline_on = _known_date(
+        candidate.application_deadline_on,
+        candidate.application_deadline_at,
+    )
     record.application_deadline_at = candidate.application_deadline_at
     record.description_text = candidate.description_text
     record.relevance_status = candidate.relevance_status.value
@@ -100,6 +121,7 @@ async def persist_candidates(
     *,
     source_code: str | None = None,
     observed_at: datetime | None = None,
+    source_scan_run_id: UUID | None = None,
 ) -> PersistBatchResult:
     """Persist one authoritative successful source snapshot without committing.
 
@@ -111,6 +133,11 @@ async def persist_candidates(
 
     ``source_code`` is required only when a legitimate successful scan contains zero
     candidates, because there is then no candidate from which to infer the source.
+
+    When ``source_scan_run_id`` is supplied by the ingestion service, eligible Funding
+    events are inserted into the transport-neutral notification outbox in this same
+    transaction. Direct low-level persistence calls can omit it and remain side-effect
+    free outside Funding storage.
     """
 
     resolved_source = _resolve_source_code(candidates, source_code)
@@ -147,7 +174,15 @@ async def persist_candidates(
                 external_key=candidate.external_key,
                 title=candidate.title,
                 source_url=str(candidate.source_url),
+                application_opens_on=_known_date(
+                    candidate.application_opens_on,
+                    candidate.application_opens_at,
+                ),
                 application_opens_at=candidate.application_opens_at,
+                application_deadline_on=_known_date(
+                    candidate.application_deadline_on,
+                    candidate.application_deadline_at,
+                ),
                 application_deadline_at=candidate.application_deadline_at,
                 description_text=candidate.description_text,
                 relevance_status=candidate.relevance_status.value,
@@ -206,12 +241,26 @@ async def persist_candidates(
             else:
                 status = ChangeStatus.UNCHANGED
 
+        event_type = notification_event_type(
+            baseline=baseline,
+            change_status=status.value,
+            relevance_status=candidate.relevance_status,
+        )
+        if event_type is not None and source_scan_run_id is not None:
+            await enqueue_notification_intent(
+                session,
+                event_type=event_type,
+                record=record,
+                candidate=candidate,
+                source_scan_run_id=source_scan_run_id,
+                observed_at=observed_at,
+            )
+
         outcomes.append(
             PersistOutcome(
                 external_key=candidate.external_key,
                 status=status,
-                notification_eligible=not baseline
-                and status in {ChangeStatus.NEW, ChangeStatus.CHANGED},
+                notification_eligible=event_type is not None,
             )
         )
 

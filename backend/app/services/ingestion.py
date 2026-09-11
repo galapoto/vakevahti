@@ -82,9 +82,9 @@ async def run_source_ingestion(
 ) -> IngestionRunResult:
     """Run one auditable source ingestion using the shared production path.
 
-    The RUNNING audit row is committed before network I/O. Persistence and the
-    SUCCEEDED audit update are committed together. A source/parsing/persistence
-    exception records a FAILED run and is re-raised to the caller.
+    The RUNNING audit row is committed before network I/O. Persistence, durable
+    notification intents and the SUCCEEDED audit update are committed together. A
+    source/parsing/persistence exception records a FAILED run and is re-raised.
 
     A scanner may legitimately return zero candidates after recognizing its source
     structure. The adapter's explicit source code is therefore passed to persistence
@@ -120,6 +120,7 @@ async def run_source_ingestion(
                     candidates,
                     source_code=scanner.source_code,
                     observed_at=persistence_observed_at,
+                    source_scan_run_id=run_id,
                 )
 
                 run = await session.get(SourceScanRun, run_id, with_for_update=True)

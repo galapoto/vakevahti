@@ -10,7 +10,8 @@ def test_dashboard_is_served() -> None:
 
     assert response.status_code == 200
     assert "VakeVahti" in response.text
-    assert "Kehitysdemo" in response.text
+    assert "VakeHyvälle sopivat rahoitushaut" in response.text
+    assert "Kehitysdemo" not in response.text
 
 
 def test_liveness_endpoint() -> None:

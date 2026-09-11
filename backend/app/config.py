@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     timezone: str = "Europe/Helsinki"
     stm_url: HttpUrl = HttpUrl("https://stm.fi/vuoden-2026-valtionavustushaut")
+    haeavustuksia_url: HttpUrl = HttpUrl(
+        "https://www.haeavustuksia.fi/fi/?isAdditionalSearchOpen=true"
+    )
+    eura_url: HttpUrl = HttpUrl("https://eura2021.fi/hakuilmoitukset")
     sitra_url: HttpUrl = HttpUrl("https://asiointi.sitra.fi/")
     academy_url: HttpUrl = HttpUrl(
         "https://www.aka.fi/tutkimusrahoitus/hae-rahoitusta/haut/"

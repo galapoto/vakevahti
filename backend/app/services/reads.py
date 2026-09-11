@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.db.models import FundingCallRecord, SourceScanRun, SourceState
+from app.domain.funding_call import RelevanceStatus
 from app.services.ingestion import ScanRunStatus
 
 
@@ -19,6 +20,13 @@ class FundingCallPage:
     total: int
     limit: int
     offset: int
+
+
+class OperatorRelevanceFilter(StrEnum):
+    """Certainty states an employee may explicitly filter in the read model."""
+
+    RELEVANT = RelevanceStatus.RELEVANT.value
+    NEEDS_REVIEW = RelevanceStatus.NEEDS_REVIEW.value
 
 
 class SourceHealthStatus(StrEnum):
@@ -35,6 +43,8 @@ class SourceHealthSnapshot:
     source_code: str
     health: SourceHealthStatus
     current_call_count: int
+    relevant_call_count: int
+    review_call_count: int
     baseline_completed_at: datetime | None
     last_successful_scan_at: datetime | None
     latest_scan_id: UUID | None
@@ -56,19 +66,31 @@ def _current_membership_condition() -> ColumnElement[bool]:
     return FundingCallRecord.last_seen_at == SourceState.last_successful_scan_at
 
 
+def _operator_visible_condition() -> ColumnElement[bool]:
+    """Hide proven non-relevant calls while retaining them in PostgreSQL for audit."""
+
+    return FundingCallRecord.relevance_status != RelevanceStatus.NOT_RELEVANT.value
+
+
 async def list_funding_calls(
     session: AsyncSession,
     *,
     source_code: str | None,
+    relevance_status: OperatorRelevanceFilter | None,
     limit: int,
     offset: int,
 ) -> FundingCallPage:
-    """Return a stable bounded page from each source's latest successful snapshot."""
+    """Return current employee-visible calls with optional source/certainty filters."""
 
-    filters: list[ColumnElement[bool]] = [_current_membership_condition()]
+    filters: list[ColumnElement[bool]] = [
+        _current_membership_condition(),
+        _operator_visible_condition(),
+    ]
     normalized_source = source_code.strip().upper() if source_code else None
     if normalized_source:
         filters.append(FundingCallRecord.source_code == normalized_source)
+    if relevance_status is not None:
+        filters.append(FundingCallRecord.relevance_status == relevance_status.value)
 
     count_statement = (
         select(func.count())
@@ -83,6 +105,7 @@ async def list_funding_calls(
         .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
         .where(*filters)
         .order_by(
+            FundingCallRecord.application_deadline_on.asc().nulls_last(),
             FundingCallRecord.application_deadline_at.asc().nulls_last(),
             FundingCallRecord.id.asc(),
         )
@@ -98,7 +121,7 @@ async def get_funding_call(
     session: AsyncSession,
     funding_call_id: int,
 ) -> FundingCallRecord | None:
-    """Read one call only if it belongs to its source's latest successful snapshot."""
+    """Read an operator-visible call only from its source's latest good snapshot."""
 
     statement = (
         select(FundingCallRecord)
@@ -106,6 +129,7 @@ async def get_funding_call(
         .where(
             FundingCallRecord.id == funding_call_id,
             _current_membership_condition(),
+            _operator_visible_condition(),
         )
     )
     return (await session.scalars(statement)).one_or_none()
@@ -138,8 +162,10 @@ async def list_source_health(
 
     The configured source list defines which adapters are expected to operate in this
     process. PostgreSQL remains the source of truth for their latest persisted state.
-    Current-call counts include only records observed in each source's latest successful
-    snapshot, so disappeared calls remain historical but no longer inflate the operator view.
+    ``current_call_count`` is the complete operator-visible total, while
+    ``relevant_call_count`` and ``review_call_count`` preserve certainty: confirmed
+    RELEVANT calls are never conflated with NEEDS_REVIEW calls. Proven NOT_RELEVANT
+    records remain retained for lineage/audit but are excluded from all three counts.
     """
 
     normalized_codes = tuple(dict.fromkeys(code.strip().upper() for code in source_codes))
@@ -168,15 +194,30 @@ async def list_source_health(
     }
 
     count_rows = await session.execute(
-        select(FundingCallRecord.source_code, func.count(FundingCallRecord.id))
+        select(
+            FundingCallRecord.source_code,
+            FundingCallRecord.relevance_status,
+            func.count(FundingCallRecord.id),
+        )
         .join(SourceState, SourceState.source_code == FundingCallRecord.source_code)
         .where(
             FundingCallRecord.source_code.in_(normalized_codes),
             _current_membership_condition(),
+            _operator_visible_condition(),
         )
-        .group_by(FundingCallRecord.source_code)
+        .group_by(FundingCallRecord.source_code, FundingCallRecord.relevance_status)
     )
-    call_counts = {source_code: int(count) for source_code, count in count_rows.all()}
+
+    current_counts: dict[str, int] = {}
+    relevant_counts: dict[str, int] = {}
+    review_counts: dict[str, int] = {}
+    for source_code, relevance_status, raw_count in count_rows.all():
+        count = int(raw_count)
+        current_counts[source_code] = current_counts.get(source_code, 0) + count
+        if relevance_status == RelevanceStatus.RELEVANT.value:
+            relevant_counts[source_code] = count
+        elif relevance_status == RelevanceStatus.NEEDS_REVIEW.value:
+            review_counts[source_code] = count
 
     snapshots: list[SourceHealthSnapshot] = []
     for source_code in normalized_codes:
@@ -186,7 +227,9 @@ async def list_source_health(
             SourceHealthSnapshot(
                 source_code=source_code,
                 health=_health_from_latest_run(latest),
-                current_call_count=call_counts.get(source_code, 0),
+                current_call_count=current_counts.get(source_code, 0),
+                relevant_call_count=relevant_counts.get(source_code, 0),
+                review_call_count=review_counts.get(source_code, 0),
                 baseline_completed_at=state.baseline_completed_at if state else None,
                 last_successful_scan_at=state.last_successful_scan_at if state else None,
                 latest_scan_id=latest.id if latest else None,

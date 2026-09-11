@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -35,6 +35,8 @@ def test_parse_academy_html_stops_before_preparation_section() -> None:
         "2026 EuroHPC-vastinraha, kutsuhaku",
         "Hyvinvointialueiden T&K-haku",
     ]
+    assert calls[0].application_opens_on == date(2026, 2, 11)
+    assert calls[0].application_deadline_on == date(2026, 10, 14)
     assert calls[0].application_deadline_at == datetime(
         2026,
         10,
@@ -46,7 +48,7 @@ def test_parse_academy_html_stops_before_preparation_section() -> None:
     assert calls[1].source_code == "ACADEMY"
 
 
-def test_academy_bare_deadline_date_is_not_given_invented_time() -> None:
+def test_academy_bare_deadline_date_is_preserved_without_invented_time() -> None:
     html = """
     <main>
       <h2>Avoimet ja tulossa olevat haut</h2>
@@ -59,6 +61,7 @@ def test_academy_bare_deadline_date_is_not_given_invented_time() -> None:
 
     call = parse_academy_html(html, SOURCE_URL)[0]
 
+    assert call.application_deadline_on == date(2026, 11, 3)
     assert call.application_deadline_at is None
     assert "3.11.2026" in (call.description_text or "")
 

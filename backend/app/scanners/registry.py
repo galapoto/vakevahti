@@ -3,6 +3,8 @@ from collections.abc import Callable, Sequence
 from app.config import Settings
 from app.scanners.academy import AcademyScanner
 from app.scanners.base import FundingSourceAdapter
+from app.scanners.eura import EuraScanner
+from app.scanners.haeavustuksia import HaeavustuksiaScanner
 from app.scanners.sitra import SitraScanner
 from app.scanners.stm import STMScanner
 
@@ -17,6 +19,14 @@ def _stm_factory(settings: Settings) -> FundingSourceAdapter:
     return STMScanner(settings)
 
 
+def _haeavustuksia_factory(settings: Settings) -> FundingSourceAdapter:
+    return HaeavustuksiaScanner(settings)
+
+
+def _eura_factory(settings: Settings) -> FundingSourceAdapter:
+    return EuraScanner(settings)
+
+
 def _sitra_factory(settings: Settings) -> FundingSourceAdapter:
     return SitraScanner(settings)
 
@@ -27,6 +37,8 @@ def _academy_factory(settings: Settings) -> FundingSourceAdapter:
 
 _SOURCE_FACTORIES: dict[str, ScannerFactory] = {
     "STM": _stm_factory,
+    "HAEAVUSTUKSIA": _haeavustuksia_factory,
+    "EURA": _eura_factory,
     "SITRA": _sitra_factory,
     "ACADEMY": _academy_factory,
 }

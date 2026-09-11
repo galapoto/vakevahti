@@ -1,10 +1,11 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Identity,
@@ -29,6 +30,13 @@ class FundingCallRecord(Base):
             "external_key",
             name="uq_funding_calls_source_external_key",
         ),
+        Index(
+            "ix_funding_calls_source_snapshot_relevance",
+            "source_code",
+            "last_seen_at",
+            "relevance_status",
+        ),
+        Index("ix_funding_calls_deadline_on", "application_deadline_on"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
@@ -36,9 +44,11 @@ class FundingCallRecord(Base):
     external_key: Mapped[str] = mapped_column(String(256), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    application_opens_on: Mapped[date | None] = mapped_column(Date(), nullable=True)
     application_opens_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    application_deadline_on: Mapped[date | None] = mapped_column(Date(), nullable=True)
     application_deadline_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
@@ -109,3 +119,53 @@ class SourceScanRun(Base):
     changed_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
     error_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class NotificationOutbox(Base):
+    """One durable Funding-domain event intent awaiting platform transport."""
+
+    __tablename__ = "notification_outbox"
+    __table_args__ = (
+        UniqueConstraint("dedupe_key", name="uq_notification_outbox_dedupe_key"),
+        Index(
+            "ix_notification_outbox_status_next_attempt",
+            "status",
+            "next_attempt_at",
+            "created_at",
+        ),
+        Index(
+            "ix_notification_outbox_status_claim_expiry",
+            "status",
+            "claim_expires_at",
+        ),
+        Index("ix_notification_outbox_scan_run", "source_scan_run_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    dedupe_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    funding_call_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("funding_calls.id"),
+        nullable=False,
+    )
+    funding_call_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_scan_run_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("source_scan_runs.id"),
+        nullable=False,
+    )
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    claim_token: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
