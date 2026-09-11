@@ -91,6 +91,30 @@ async def test_source_health_separates_confirmed_review_and_excluded_counts() ->
                 "RELEVANT",
                 "NEEDS_REVIEW",
             }
+
+            confirmed_response = await client.get(
+                "/api/funding-calls",
+                params={"relevance_status": "RELEVANT"},
+            )
+            assert confirmed_response.status_code == 200
+            confirmed = confirmed_response.json()
+            assert confirmed["total"] == 1
+            assert [item["title"] for item in confirmed["items"]] == ["Call confirmed"]
+
+            review_response = await client.get(
+                "/api/funding-calls",
+                params={"relevance_status": "NEEDS_REVIEW"},
+            )
+            assert review_response.status_code == 200
+            review = review_response.json()
+            assert review["total"] == 1
+            assert [item["title"] for item in review["items"]] == ["Call review"]
+
+            excluded_filter = await client.get(
+                "/api/funding-calls",
+                params={"relevance_status": "NOT_RELEVANT"},
+            )
+            assert excluded_filter.status_code == 422
     finally:
         async with engine.begin() as connection:
             await connection.execute(text(TRUNCATE_SQL))
