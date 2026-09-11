@@ -12,13 +12,19 @@ from app.api.schemas import (
     SourceHealthResponse,
 )
 from app.config import Settings
-from app.services.reads import get_funding_call, list_funding_calls, list_source_health
+from app.services.reads import (
+    OperatorRelevanceFilter,
+    get_funding_call,
+    list_funding_calls,
+    list_source_health,
+)
 
 router = APIRouter(prefix="/api")
 
 SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
 SettingsDependency = Annotated[Settings, Depends(get_runtime_settings)]
 SourceCodeQuery = Annotated[str | None, Query(min_length=1, max_length=32)]
+RelevanceQuery = Annotated[OperatorRelevanceFilter | None, Query()]
 LimitQuery = Annotated[int, Query(ge=1, le=100)]
 OffsetQuery = Annotated[int, Query(ge=0)]
 
@@ -31,6 +37,7 @@ OffsetQuery = Annotated[int, Query(ge=0)]
 async def funding_calls(
     session: SessionDependency,
     source_code: SourceCodeQuery = None,
+    relevance_status: RelevanceQuery = None,
     limit: LimitQuery = 50,
     offset: OffsetQuery = 0,
 ) -> FundingCallListResponse:
@@ -39,6 +46,7 @@ async def funding_calls(
     page = await list_funding_calls(
         session,
         source_code=source_code,
+        relevance_status=relevance_status,
         limit=limit,
         offset=offset,
     )
