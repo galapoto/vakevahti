@@ -11,6 +11,7 @@ from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.dashboard import DASHBOARD_HTML
+from app.ui.dashboard_customization import render_dashboard_html
 
 
 def create_app(
@@ -37,7 +38,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.3.0",
+        version="0.7.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -46,9 +47,9 @@ def create_app(
 
     @application.get("/", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard() -> HTMLResponse:
-        """Development dashboard for demonstrating currently implemented capabilities."""
+        """Serve the persisted employee dashboard without triggering source acquisition."""
 
-        return HTMLResponse(DASHBOARD_HTML)
+        return HTMLResponse(render_dashboard_html(DASHBOARD_HTML))
 
     @application.get("/health/live", tags=["health"])
     async def live() -> dict[str, str]:
@@ -58,7 +59,7 @@ def create_app(
 
     @application.get("/api/demo/stm-calls", tags=["demo"])
     async def demo_stm_calls() -> dict[str, object]:
-        """Run the real STM adapter and return validated calls for the development UI."""
+        """Run the real STM adapter for engineering diagnostics only."""
 
         try:
             calls = await STMScanner(settings).scan()
