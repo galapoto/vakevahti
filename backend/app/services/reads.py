@@ -22,6 +22,13 @@ class FundingCallPage:
     offset: int
 
 
+class OperatorRelevanceFilter(StrEnum):
+    """Certainty states an employee may explicitly filter in the read model."""
+
+    RELEVANT = RelevanceStatus.RELEVANT.value
+    NEEDS_REVIEW = RelevanceStatus.NEEDS_REVIEW.value
+
+
 class SourceHealthStatus(StrEnum):
     """Operational health derived only from facts already stored by ingestion."""
 
@@ -69,10 +76,11 @@ async def list_funding_calls(
     session: AsyncSession,
     *,
     source_code: str | None,
+    relevance_status: OperatorRelevanceFilter | None,
     limit: int,
     offset: int,
 ) -> FundingCallPage:
-    """Return current RELEVANT/NEEDS_REVIEW calls from the latest good snapshots."""
+    """Return current employee-visible calls with optional source/certainty filters."""
 
     filters: list[ColumnElement[bool]] = [
         _current_membership_condition(),
@@ -81,6 +89,8 @@ async def list_funding_calls(
     normalized_source = source_code.strip().upper() if source_code else None
     if normalized_source:
         filters.append(FundingCallRecord.source_code == normalized_source)
+    if relevance_status is not None:
+        filters.append(FundingCallRecord.relevance_status == relevance_status.value)
 
     count_statement = (
         select(func.count())
