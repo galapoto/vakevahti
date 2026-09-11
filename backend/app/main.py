@@ -16,6 +16,7 @@ from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
 from app.db.startup_migrations import run_startup_migrations
 from app.scanners.stm import SourceStructureError, STMScanner
+from app.ui.brand import apply_vake_brand_typography
 from app.ui.dashboard import DASHBOARD_HTML
 from app.ui.dashboard_certainty_filter import render_dashboard_certainty_filter
 from app.ui.dashboard_customization import render_dashboard_html
@@ -52,7 +53,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.14.0",
+        version="0.15.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -98,13 +99,14 @@ def create_app(
             preview_mode=settings.dashboard_preview_mode,
         )
         themed = apply_dashboard_theme(persistent_reporting)
+        branded = apply_vake_brand_typography(themed)
         if settings.dashboard_preview_mode:
-            themed = themed.replace(
+            branded = branded.replace(
                 "Tallennettu tilannekuva",
                 "Kehitysesikatselu · fixture-data",
                 1,
             )
-        return HTMLResponse(themed)
+        return HTMLResponse(branded)
 
     @application.get("/health/live", tags=["health"])
     async def live() -> dict[str, str]:
