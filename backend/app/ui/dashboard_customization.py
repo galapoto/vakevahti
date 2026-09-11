@@ -92,6 +92,11 @@ _STYLE_OVERRIDES = r"""
     --row-color: #E6007E;
     --row-soft: #fff0f8;
   }
+  .opportunity[data-relevance="NEEDS_REVIEW"],
+  .opportunity[data-relevance="REVIEW"] {
+    --row-color: #B59525;
+    --row-soft: #fbf7e9;
+  }
 
   .why-line strong,
   .fit-box .detail-label,
@@ -164,11 +169,99 @@ _RELEVANCE_NEW = r'''    function relevanceLabel(value) {
       return labels[normalized] || normalized || "Ei tietoa";
     }'''
 
+_REASON_OLD = r'''    function relevanceReason(call) {
+      const reason = String(call.relevance_reason || "").trim();
+      if (reason) return reason;
+      return "VakeVahti on luokitellut haun VakeHyvälle relevantiksi tallennettujen tietojen perusteella.";
+    }'''
+
+_REASON_NEW = r'''    function needsReview(value) {
+      const normalized = String(value || "").trim().toUpperCase();
+      return normalized === "NEEDS_REVIEW" || normalized === "REVIEW";
+    }
+
+    function relevanceReason(call) {
+      const reason = String(call.relevance_reason || "").trim();
+      if (reason) return reason;
+      if (needsReview(call.relevance_status)) {
+        return "VakeVahti ei pystynyt varmistamaan hakukelpoisuutta automaattisesti. Haku vaatii henkilön tarkistuksen.";
+      }
+      return "VakeVahti on luokitellut haun VakeHyvälle relevantiksi tallennettujen tietojen perusteella.";
+    }'''
+
 _DEADLINE_CALL_OLD = '        const deadline = formatDeadline(call.application_deadline_at);'
 _DEADLINE_CALL_NEW = (
     '        const deadline = formatDeadline('
     'call.application_deadline_at || call.application_deadline_on);'
 )
+
+_HERO_TITLE_OLD = '<h1 id="page-title"><span class="vakehyva">VakeHyvälle</span> sopivat rahoitushaut</h1>'
+_HERO_TITLE_NEW = '<h1 id="page-title"><span class="vakehyva">VakeHyvälle</span> varmistetut ja tarkistettavat rahoitushaut</h1>'
+
+_HERO_COPY_OLD = '''          VakeVahti kokoaa rahoitushaut yhteen ja näyttää, miksi kukin mahdollisuus on arvioitu
+          VakeHyvälle relevantiksi.'''
+_HERO_COPY_NEW = '''          VakeVahti kokoaa rahoitushaut yhteen ja erottaa varmistetusti relevantit haut niistä,
+          joiden hakukelpoisuus vaatii vielä henkilön tarkistuksen.'''
+
+_KPI_LABEL_OLD = '<span class="kpi-top"><span class="kpi-label">VakeHyvälle sopivat haut</span><span class="kpi-icon">↗</span></span>'
+_KPI_LABEL_NEW = '<span class="kpi-top"><span class="kpi-label">Varmistetusti sopivat haut</span><span class="kpi-icon">↗</span></span>'
+_KPI_DETAIL_OLD = '<span class="kpi-detail">Kaikkien seurattujen lähteiden nykyiset relevantit haut</span>'
+_KPI_DETAIL_NEW = '<span class="kpi-detail">Vain vahvistetut relevantit haut; tarkistettavat näkyvät listassa erikseen</span>'
+
+_CALLS_HEADING_OLD = '<h2 id="calls-heading">VakeHyvälle tunnistetut rahoitusmahdollisuudet</h2>'
+_CALLS_HEADING_NEW = '<h2 id="calls-heading">Varmistetut ja tarkistettavat rahoitusmahdollisuudet</h2>'
+_CALLS_COPY_OLD = '<p>Jokaisen haun alla näkyy suoraan tallennettu perustelu sille, miksi haku on arvioitu VakeHyvälle relevantiksi.</p>'
+_CALLS_COPY_NEW = '<p>Jokaisen haun alla näkyy tallennettu perustelu sekä selkeä tieto siitä, onko sopivuus varmistettu vai vaatiiko haku tarkistuksen.</p>'
+_LOADING_OLD = '<div class="loading-state">Ladataan VakeHyvälle sopivia rahoitushakuja…</div>'
+_LOADING_NEW = '<div class="loading-state">Ladataan varmistettuja ja tarkistettavia rahoitushakuja…</div>'
+_EMPTY_OLD = '        elements.opportunityList.append(text("div", "Valitussa viimeisimmässä onnistuneessa tilannekuvassa ei ole nykyisiä VakeHyvälle sopivia rahoitushakuja.", "empty-state"));'
+_EMPTY_NEW = '        elements.opportunityList.append(text("div", "Valitussa viimeisimmässä onnistuneessa tilannekuvassa ei ole varmistettuja tai tarkistettavia rahoitushakuja.", "empty-state"));'
+
+_HEALTH_TOTAL_OLD = '''      const totalCurrent = state.health.reduce((sum, item) => sum + Number(item.current_call_count || 0), 0);
+      elements.totalCalls.textContent = String(totalCurrent);'''
+_HEALTH_TOTAL_NEW = '''      const totalRelevant = state.health.reduce((sum, item) => sum + Number(item.relevant_call_count || 0), 0);
+      elements.totalCalls.textContent = String(totalRelevant);'''
+
+_SOURCE_COUNT_OLD = '''        const count = document.createElement("div");
+        count.className = "source-count";
+        count.append(document.createTextNode(String(item.current_call_count)));
+        count.append(text("span", "VakeHyvälle sopivaa hakua"));
+        main.append(count);
+
+        const facts = document.createElement("div");
+        facts.className = "fact-list";
+        addFact(facts, "Viimeisin onnistunut ajo", formatDateTime(item.last_successful_scan_at));'''
+_SOURCE_COUNT_NEW = '''        const count = document.createElement("div");
+        count.className = "source-count";
+        count.append(document.createTextNode(String(item.relevant_call_count || 0)));
+        count.append(text("span", "varmistetusti sopivaa hakua"));
+        main.append(count);
+
+        const facts = document.createElement("div");
+        facts.className = "fact-list";
+        addFact(facts, "Tarkistettavat", String(item.review_call_count || 0));
+        addFact(facts, "Viimeisin onnistunut ajo", formatDateTime(item.last_successful_scan_at));'''
+
+_DETAIL_FIT_OLD = '      fit.append(text("span", "Miksi tämä sopii VakeHyvälle", "detail-label"));'
+_DETAIL_FIT_NEW = '''      const fitLabel = needsReview(detail.relevance_status)
+        ? "Miksi tämä on tarkistettava"
+        : "Miksi tämä sopii VakeHyvälle";
+      fit.append(text("span", fitLabel, "detail-label"));'''
+
+_LIST_COUNT_OLD = '''      elements.listCount.textContent = state.source
+        ? `${state.calls.length} hakua · ${sourceMeta(state.source).name}`
+        : `${state.calls.length} hakua · kaikki lähteet`;'''
+_LIST_COUNT_NEW = '''      const confirmedCount = state.calls.filter((call) => String(call.relevance_status || "").trim().toUpperCase() === "RELEVANT").length;
+      const reviewCount = state.calls.filter((call) => needsReview(call.relevance_status)).length;
+      const scope = state.source ? sourceMeta(state.source).name : "kaikki lähteet";
+      elements.listCount.textContent = `${confirmedCount} vahvistettua · ${reviewCount} tarkistettavaa · ${scope}`;'''
+
+_ROW_DATA_OLD = '        row.dataset.source = call.source_code;'
+_ROW_DATA_NEW = '''        row.dataset.source = call.source_code;
+        row.dataset.relevance = String(call.relevance_status || "").trim().toUpperCase();'''
+
+_WHY_LABEL_OLD = '        whyLabel.textContent = "Miksi VakeHyvälle: ";'
+_WHY_LABEL_NEW = '        whyLabel.textContent = needsReview(call.relevance_status) ? "Miksi tarkistettava: " : "Miksi VakeHyvälle: ";'
 
 
 def _replace_once(html: str, old: str, new: str, *, label: str) -> str:
@@ -178,7 +271,7 @@ def _replace_once(html: str, old: str, new: str, *, label: str) -> str:
 
 
 def render_dashboard_html(base_html: str) -> str:
-    """Return the Milestone 7 employee dashboard with VAKE styling and five-source metadata."""
+    """Return the employee dashboard with VAKE styling and certainty-aware wording."""
 
     html = _replace_once(
         base_html,
@@ -186,8 +279,27 @@ def render_dashboard_html(base_html: str) -> str:
         f"{_STYLE_OVERRIDES}\n</head>",
         label="head",
     )
-    html = _replace_once(html, _SOURCE_META_OLD, _SOURCE_META_NEW, label="source-meta")
-    html = _replace_once(html, _SCAN_STATUS_OLD, _SCAN_STATUS_NEW, label="scan-status")
-    html = _replace_once(html, _RELEVANCE_OLD, _RELEVANCE_NEW, label="relevance-status")
-    html = _replace_once(html, _DEADLINE_CALL_OLD, _DEADLINE_CALL_NEW, label="deadline")
+    replacements = (
+        (_SOURCE_META_OLD, _SOURCE_META_NEW, "source-meta"),
+        (_SCAN_STATUS_OLD, _SCAN_STATUS_NEW, "scan-status"),
+        (_RELEVANCE_OLD, _RELEVANCE_NEW, "relevance-status"),
+        (_REASON_OLD, _REASON_NEW, "relevance-reason"),
+        (_DEADLINE_CALL_OLD, _DEADLINE_CALL_NEW, "deadline"),
+        (_HERO_TITLE_OLD, _HERO_TITLE_NEW, "hero-title"),
+        (_HERO_COPY_OLD, _HERO_COPY_NEW, "hero-copy"),
+        (_KPI_LABEL_OLD, _KPI_LABEL_NEW, "kpi-label"),
+        (_KPI_DETAIL_OLD, _KPI_DETAIL_NEW, "kpi-detail"),
+        (_CALLS_HEADING_OLD, _CALLS_HEADING_NEW, "calls-heading"),
+        (_CALLS_COPY_OLD, _CALLS_COPY_NEW, "calls-copy"),
+        (_LOADING_OLD, _LOADING_NEW, "loading-copy"),
+        (_EMPTY_OLD, _EMPTY_NEW, "empty-copy"),
+        (_HEALTH_TOTAL_OLD, _HEALTH_TOTAL_NEW, "health-total"),
+        (_SOURCE_COUNT_OLD, _SOURCE_COUNT_NEW, "source-count"),
+        (_DETAIL_FIT_OLD, _DETAIL_FIT_NEW, "detail-fit"),
+        (_LIST_COUNT_OLD, _LIST_COUNT_NEW, "list-count"),
+        (_ROW_DATA_OLD, _ROW_DATA_NEW, "row-relevance"),
+        (_WHY_LABEL_OLD, _WHY_LABEL_NEW, "why-label"),
+    )
+    for old, new, label in replacements:
+        html = _replace_once(html, old, new, label=label)
     return html
