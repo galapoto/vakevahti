@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     enabled_sources: str = "STM"
     scan_interval_minutes: int = Field(default=60, ge=5, le=1440)
     scan_run_on_startup: bool = True
+    enable_live_test_routes: bool = False
 
     @property
     def enabled_source_codes(self) -> tuple[str, ...]:
