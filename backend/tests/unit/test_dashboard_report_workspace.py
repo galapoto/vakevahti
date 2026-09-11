@@ -50,7 +50,7 @@ def test_report_workspace_preserves_existing_dashboard_layers() -> None:
     assert response.status_code == 200
     html = response.text
     assert 'id="theme-toggle"' in html
-    assert 'id="certainty-filter"' in html
+    assert 'id="relevance-filter"' in html
     assert "Haeavustuksia.fi" in html
     assert "EURA 2021" in html
     assert 'id="opportunity-list"' in html
