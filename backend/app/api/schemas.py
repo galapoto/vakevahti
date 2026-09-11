@@ -43,6 +43,8 @@ class SourceHealthItem(BaseModel):
     source_code: str
     health: SourceHealthStatus
     current_call_count: int = Field(ge=0)
+    relevant_call_count: int = Field(ge=0)
+    review_call_count: int = Field(ge=0)
     baseline_completed_at: datetime | None
     last_successful_scan_at: datetime | None
     latest_scan_id: UUID | None
