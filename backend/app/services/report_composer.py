@@ -91,8 +91,14 @@ def compose_automated_report(
         subject = f"VakeVahti: {_event_label(finding.event_type)} – {finding.title}"
     else:
         source_text = ", ".join(unique_sources)
-        title = f"VakeVahti · {len(findings)} rahoituslöydöstä · {source_text} · {generated_date}"
-        subject = f"VakeVahti: {len(findings)} uutta tai muuttunutta rahoituslöydöstä – {source_text}"
+        title = (
+            f"VakeVahti · {len(findings)} rahoituslöydöstä · "
+            f"{source_text} · {generated_date}"
+        )
+        subject = (
+            f"VakeVahti: {len(findings)} uutta tai muuttunutta "
+            f"rahoituslöydöstä – {source_text}"
+        )
 
     title = title[:200]
     subject = subject[:500]
