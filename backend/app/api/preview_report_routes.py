@@ -10,13 +10,13 @@ from app.api.report_schemas import (
     FundingReportResponse,
     FundingReportStatus,
 )
+from app.api.schemas import FundingCallDetail
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 _REPORTS: dict[UUID, FundingReportResponse] = {}
 
 
-def _snapshot(call: object) -> dict[str, object]:
-    funding_call = call
+def _snapshot(funding_call: FundingCallDetail) -> dict[str, object]:
     return {
         "source_code": funding_call.source_code,
         "title": funding_call.title,
