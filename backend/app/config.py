@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     scan_interval_minutes: int = Field(default=60, ge=5, le=1440)
     scan_run_on_startup: bool = True
     enable_live_test_routes: bool = False
+    dashboard_preview_mode: bool = False
     migrate_database_on_startup: bool = False
 
     @property
