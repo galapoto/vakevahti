@@ -91,6 +91,8 @@ async def source_health(
                 source_code=snapshot.source_code,
                 health=snapshot.health,
                 current_call_count=snapshot.current_call_count,
+                relevant_call_count=snapshot.relevant_call_count,
+                review_call_count=snapshot.review_call_count,
                 baseline_completed_at=snapshot.baseline_completed_at,
                 last_successful_scan_at=snapshot.last_successful_scan_at,
                 latest_scan_id=snapshot.latest_scan_id,
