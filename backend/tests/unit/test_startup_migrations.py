@@ -2,7 +2,6 @@ import asyncio
 
 import pytest
 
-import app.db.startup_migrations as migration_module
 from app.config import Settings
 from app.db.startup_migrations import StartupMigrationError, run_startup_migrations
 
