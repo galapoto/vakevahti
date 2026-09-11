@@ -1,4 +1,4 @@
-"""Add an operator-facing certainty filter to the persisted funding dashboard."""
+"""Add operator certainty filtering and complete pagination to the funding dashboard."""
 
 _STYLE = r"""
 <style id="vake-certainty-filter">
@@ -75,13 +75,47 @@ _ELEMENTS_NEW = '''      sourceGrid: document.getElementById("source-grid"),
       relevanceFilter: document.getElementById("relevance-filter"),
       listCount: document.getElementById("list-count"),'''
 
-_FETCH_FILTER_OLD = '''      const params = new URLSearchParams({ limit: "100", offset: "0" });
+_FETCH_CALLS_OLD = r'''    async function fetchCalls() {
+      const params = new URLSearchParams({ limit: "100", offset: "0" });
       if (state.source) params.set("source_code", state.source);
-      const response = await fetch(`/api/funding-calls?${params.toString()}`);'''
-_FETCH_FILTER_NEW = '''      const params = new URLSearchParams({ limit: "100", offset: "0" });
-      if (state.source) params.set("source_code", state.source);
-      if (state.relevance) params.set("relevance_status", state.relevance);
-      const response = await fetch(`/api/funding-calls?${params.toString()}`);'''
+      const response = await fetch(`/api/funding-calls?${params.toString()}`);
+      if (!response.ok) throw new Error(`Funding HTTP ${response.status}`);
+      const payload = await response.json();
+      state.calls = payload.items || [];
+      renderCalls();
+    }'''
+
+_FETCH_CALLS_NEW = r'''    async function fetchCalls() {
+      const pageSize = 100;
+      let offset = 0;
+      let expectedTotal = null;
+      const calls = [];
+
+      while (expectedTotal === null || offset < expectedTotal) {
+        const params = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
+        if (state.source) params.set("source_code", state.source);
+        if (state.relevance) params.set("relevance_status", state.relevance);
+
+        const response = await fetch(`/api/funding-calls?${params.toString()}`);
+        if (!response.ok) throw new Error(`Funding HTTP ${response.status}`);
+        const payload = await response.json();
+        const pageItems = Array.isArray(payload.items) ? payload.items : [];
+        const total = Number(payload.total);
+        if (!Number.isFinite(total) || total < 0) {
+          throw new Error("Funding API returned an invalid total.");
+        }
+        expectedTotal = total;
+        calls.push(...pageItems);
+        offset += pageItems.length;
+
+        if (!pageItems.length && offset < expectedTotal) {
+          throw new Error("Funding API pagination stopped before the advertised total.");
+        }
+      }
+
+      state.calls = calls;
+      renderCalls();
+    }'''
 
 _LISTENERS_OLD = '''    elements.sourceFilter.addEventListener("change", (event) => applySourceFilter(event.target.value, false));
     elements.refreshButton.addEventListener("click", () => { state.details.clear(); loadDashboard(); });
@@ -106,14 +140,14 @@ def _replace_once(html: str, old: str, new: str, *, label: str) -> str:
 
 
 def render_dashboard_certainty_filter(html: str) -> str:
-    """Add source-independent RELEVANT/NEEDS_REVIEW filtering to the dashboard."""
+    """Add certainty filtering and load every page from the persisted read API."""
 
     html = _replace_once(html, "</head>", f"{_STYLE}\n</head>", label="head")
     replacements = (
         (_TOOLBAR_OLD, _TOOLBAR_NEW, "toolbar"),
         (_STATE_OLD, _STATE_NEW, "state"),
         (_ELEMENTS_OLD, _ELEMENTS_NEW, "elements"),
-        (_FETCH_FILTER_OLD, _FETCH_FILTER_NEW, "fetch-filter"),
+        (_FETCH_CALLS_OLD, _FETCH_CALLS_NEW, "fetch-calls"),
         (_LISTENERS_OLD, _LISTENERS_NEW, "listeners"),
     )
     for old, new, label in replacements:
