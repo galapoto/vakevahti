@@ -3,7 +3,8 @@ from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.live_test import router as live_test_router
@@ -42,7 +43,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.8.0",
+        version="0.9.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -75,6 +76,33 @@ def create_app(
         """Liveness probe: proves the API process is running."""
 
         return {"status": "ok", "service": settings.app_name}
+
+    @application.get("/health/ready", tags=["health"])
+    async def ready() -> JSONResponse:
+        """Readiness probe: distinguish a running API from usable persisted storage."""
+
+        try:
+            async with session_factory() as session:
+                await session.execute(text("SELECT 1"))
+        except Exception as exc:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "not_ready",
+                    "service": settings.app_name,
+                    "database": "unavailable",
+                    "error_type": type(exc).__name__,
+                },
+            )
+
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "ready",
+                "service": settings.app_name,
+                "database": "ok",
+            },
+        )
 
     @application.get("/api/demo/stm-calls", tags=["demo"])
     async def demo_stm_calls() -> dict[str, object]:
