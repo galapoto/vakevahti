@@ -1,6 +1,6 @@
 import os
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from pydantic import HttpUrl
@@ -64,7 +64,7 @@ async def session_factory() -> async_sessionmaker[AsyncSession]:
 
 async def _seed_changed_scan(
     factory: async_sessionmaker[AsyncSession],
-) -> tuple[object, datetime]:
+) -> tuple[UUID, datetime]:
     baseline_at = datetime(2026, 9, 11, 8, 0, tzinfo=UTC)
     changed_at = baseline_at + timedelta(hours=1)
     run_id = uuid4()
