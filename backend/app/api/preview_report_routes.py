@@ -1,14 +1,16 @@
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from app.api.preview_routes import _PREVIEW_CALLS
 from app.api.report_schemas import (
     FundingReportDraftCreate,
     FundingReportItemResponse,
+    FundingReportOrigin,
     FundingReportResponse,
     FundingReportStatus,
+    FundingReportUpdate,
 )
 from app.api.schemas import FundingCallDetail
 
@@ -65,7 +67,20 @@ async def create_report(draft: FundingReportDraftCreate) -> FundingReportRespons
         id=uuid4(),
         title=draft.title.strip(),
         status=FundingReportStatus.DRAFT,
+        origin=FundingReportOrigin.MANUAL,
+        automation_key=None,
         notes=draft.notes.strip() if draft.notes and draft.notes.strip() else None,
+        email_subject=(
+            draft.email_subject.strip()
+            if draft.email_subject and draft.email_subject.strip()
+            else None
+        ),
+        email_body=(
+            draft.email_body.strip()
+            if draft.email_body and draft.email_body.strip()
+            else None
+        ),
+        recipient_emails=list(draft.recipient_emails),
         created_at=now,
         updated_at=now,
         submitted_for_approval_at=None,
@@ -83,12 +98,47 @@ async def create_report(draft: FundingReportDraftCreate) -> FundingReportRespons
     return report
 
 
+@router.get("/latest", response_model=FundingReportResponse | None)
+async def latest_report(response: Response) -> FundingReportResponse | None:
+    if not _REPORTS:
+        response.status_code = status.HTTP_204_NO_CONTENT
+        return None
+    return max(_REPORTS.values(), key=lambda report: report.created_at)
+
+
 @router.get("/{report_id}", response_model=FundingReportResponse)
 async def report_detail(report_id: UUID) -> FundingReportResponse:
     report = _REPORTS.get(report_id)
     if report is None:
         raise HTTPException(status_code=404, detail="Funding report not found.")
     return report
+
+
+@router.patch("/{report_id}", response_model=FundingReportResponse)
+async def edit_report(
+    report_id: UUID,
+    update: FundingReportUpdate,
+) -> FundingReportResponse:
+    report = _REPORTS.get(report_id)
+    if report is None:
+        raise HTTPException(status_code=404, detail="Funding report not found.")
+
+    changes = update.model_dump(exclude_unset=True)
+    if "title" in changes and changes["title"] is not None:
+        changes["title"] = str(changes["title"]).strip()
+    for field in ("notes", "email_subject", "email_body"):
+        if field in changes:
+            value = changes[field]
+            changes[field] = str(value).strip() if value else None
+    if changes:
+        changes["updated_at"] = datetime.now(UTC)
+        if report.status is FundingReportStatus.WAITING_APPROVAL:
+            changes["status"] = FundingReportStatus.DRAFT
+            changes["submitted_for_approval_at"] = None
+
+    edited = report.model_copy(update=changes)
+    _REPORTS[report_id] = edited
+    return edited
 
 
 @router.post("/{report_id}/submit", response_model=FundingReportResponse)

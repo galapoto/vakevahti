@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     dashboard_preview_mode: bool = False
     migrate_database_on_startup: bool = False
     enable_report_write_routes: bool = False
+    automatic_report_enabled: bool = True
+    report_email_recipients: str = ""
 
     @property
     def enabled_source_codes(self) -> tuple[str, ...]:
@@ -53,6 +55,24 @@ class Settings(BaseSettings):
         if not codes:
             raise ValueError("ENABLED_SOURCES must contain at least one source code.")
         return tuple(codes)
+
+    @property
+    def report_recipient_emails(self) -> tuple[str, ...]:
+        """Return normalized report recipients configured for unattended delivery."""
+
+        normalized = self.report_email_recipients.replace(";", ",")
+        recipients: list[str] = []
+        seen: set[str] = set()
+        for raw in normalized.split(","):
+            value = raw.strip()
+            if not value:
+                continue
+            lowered = value.casefold()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            recipients.append(value)
+        return tuple(recipients)
 
 
 @lru_cache
