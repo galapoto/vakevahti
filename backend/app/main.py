@@ -8,7 +8,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.live_test import router as live_test_router
+from app.api.preview_report_routes import router as preview_report_router
 from app.api.preview_routes import router as preview_api_router
+from app.api.report_routes import router as report_router
 from app.api.routes import router as api_router
 from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
@@ -49,13 +51,18 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.12.0",
+        version="0.13.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
     application.state.session_factory = session_factory
     selected_router = preview_api_router if settings.dashboard_preview_mode else api_router
     application.include_router(selected_router)
+
+    if settings.dashboard_preview_mode:
+        application.include_router(preview_report_router)
+    elif settings.enable_report_write_routes:
+        application.include_router(report_router)
 
     if settings.enable_live_test_routes:
         application.include_router(live_test_router)
