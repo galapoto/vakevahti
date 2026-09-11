@@ -1,0 +1,56 @@
+name: Live Funding Source Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-source-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install backend
+        run: python -m pip install -e '.[dev]'
+
+      - name: Install Chromium fallback
+        run: python -m playwright install --with-deps chromium
+
+      - name: Validate Haeavustuksia.fi live
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m app.cli scan-source HAEAVUSTUKSIA | tee ../haeavustuksia-live-smoke.txt
+
+      - name: Validate EURA 2021 live
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m app.cli scan-source EURA | tee ../eura-live-smoke.txt
+
+      - name: Upload live validation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-funding-source-smoke-${{ github.run_id }}
+          path: |
+            haeavustuksia-live-smoke.txt
+            eura-live-smoke.txt
+          if-no-files-found: warn
+          retention-days: 14
