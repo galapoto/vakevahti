@@ -44,11 +44,11 @@ def _source_name(source_code: str) -> str:
 
 def _deadline(finding: ReportFinding) -> str:
     if finding.application_deadline_at is not None:
-        value = finding.application_deadline_at
-        return f"{value.day}.{value.month}.{value.year} klo {value.hour:02d}.{value.minute:02d}"
+        exact = finding.application_deadline_at
+        return f"{exact.day}.{exact.month}.{exact.year} klo {exact.hour:02d}.{exact.minute:02d}"
     if finding.application_deadline_on is not None:
-        value = finding.application_deadline_on
-        return f"{value.day}.{value.month}.{value.year}"
+        day = finding.application_deadline_on
+        return f"{day.day}.{day.month}.{day.year}"
     return "Ei ilmoitettu"
 
 
