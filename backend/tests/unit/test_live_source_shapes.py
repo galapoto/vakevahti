@@ -28,6 +28,28 @@ def test_public_entity_matcher_handles_finnish_inflection_without_generic_overma
     assert match_public_entity_eligibility_term("Oikeuskelpoiset yhteisöt voivat hakea.") is None
 
 
+def test_public_entity_matcher_rejects_negated_and_incidental_mentions() -> None:
+    assert (
+        match_public_entity_eligibility_term(
+            "Avustusta ei voida myöntää hyvinvointialueille eikä kunnille."
+        )
+        is None
+    )
+    assert (
+        match_public_entity_eligibility_term(
+            "Hanke toteutetaan yhteistyössä hyvinvointialueiden kanssa."
+        )
+        is None
+    )
+    assert (
+        match_public_entity_eligibility_term(
+            "Avustusta ei voida myöntää yksityishenkilöille, mutta "
+            "hyvinvointialueet voivat hakea avustusta."
+        )
+        == "hyvinvointialueet"
+    )
+
+
 def test_eura_current_2026_etela_suomi_shape_with_inflected_public_entity_is_relevant() -> None:
     # Regression shape observed from a live EURA 2021 Etelä-Suomi notice in September 2026.
     html = """
@@ -59,6 +81,28 @@ def test_eura_current_2026_etela_suomi_shape_with_inflected_public_entity_is_rel
     assert "julkisoikeudelliselle yhteisölle" in call.relevance_reason
     assert call.application_opens_on == date(2026, 4, 1)
     assert call.application_deadline_on == date(2026, 6, 3)
+
+
+def test_eura_incidental_wellbeing_mention_is_not_applicant_evidence() -> None:
+    html = """
+    <main>
+      <h1>Etelä-Suomen yhteistyöhanke</h1>
+      <div>Haun kohdealue</div>
+      <div>Etelä-Suomi</div>
+      <div>Maakunnat</div>
+      <div>Uusimaa</div>
+      <div>Hankehaun kuvaus</div>
+      <p>Hanke toteutetaan yhteistyössä hyvinvointialueiden kanssa.</p>
+      <div>Hakeminen</div>
+    </main>
+    """
+
+    call = parse_eura_detail_html(
+        html,
+        "https://eura2021.fi/hakuilmoitukset/hakuilmoitus/11111111-2222-3333-4444-555555555555",
+    )
+
+    assert call.relevance_status is RelevanceStatus.NEEDS_REVIEW
 
 
 def test_haeavustuksia_current_2026_generic_legal_entity_shape_stays_reviewable() -> None:
@@ -104,3 +148,21 @@ def test_haeavustuksia_inflected_public_entity_wording_is_relevant() -> None:
 
     assert call.relevance_status is RelevanceStatus.RELEVANT
     assert "julkisoikeudelliselle yhteisölle" in call.relevance_reason
+
+
+def test_haeavustuksia_negated_wellbeing_term_does_not_false_positive() -> None:
+    html = """
+    <main>
+      <h1>Rajattu avustus</h1>
+      <h2>Kenelle/mille avustusta voidaan myöntää</h2>
+      <p>Avustusta ei voida myöntää hyvinvointialueille.</p>
+      <h2>Mihin käyttötarkoituksiin avustusta voidaan myöntää</h2>
+    </main>
+    """
+
+    call = parse_haeavustuksia_detail_html(
+        html,
+        "https://www.haeavustuksia.fi/fi/haku/va-test-2026-negated",
+    )
+
+    assert call.relevance_status is not RelevanceStatus.RELEVANT

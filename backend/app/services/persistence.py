@@ -2,6 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from enum import StrEnum
+from uuid import UUID
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import FundingCallRecord, FundingCallVersion, SourceState
 from app.domain.funding_call import FundingCallCandidate
 from app.services.change_detection import candidate_content_hash, candidate_snapshot
+from app.services.notification_outbox import (
+    enqueue_notification_intent,
+    notification_event_type,
+)
 
 
 class ChangeStatus(StrEnum):
@@ -116,6 +121,7 @@ async def persist_candidates(
     *,
     source_code: str | None = None,
     observed_at: datetime | None = None,
+    source_scan_run_id: UUID | None = None,
 ) -> PersistBatchResult:
     """Persist one authoritative successful source snapshot without committing.
 
@@ -127,6 +133,11 @@ async def persist_candidates(
 
     ``source_code`` is required only when a legitimate successful scan contains zero
     candidates, because there is then no candidate from which to infer the source.
+
+    When ``source_scan_run_id`` is supplied by the ingestion service, eligible Funding
+    events are inserted into the transport-neutral notification outbox in this same
+    transaction. Direct low-level persistence calls can omit it and remain side-effect
+    free outside Funding storage.
     """
 
     resolved_source = _resolve_source_code(candidates, source_code)
@@ -230,12 +241,26 @@ async def persist_candidates(
             else:
                 status = ChangeStatus.UNCHANGED
 
+        event_type = notification_event_type(
+            baseline=baseline,
+            change_status=status.value,
+            relevance_status=candidate.relevance_status,
+        )
+        if event_type is not None and source_scan_run_id is not None:
+            await enqueue_notification_intent(
+                session,
+                event_type=event_type,
+                record=record,
+                candidate=candidate,
+                source_scan_run_id=source_scan_run_id,
+                observed_at=observed_at,
+            )
+
         outcomes.append(
             PersistOutcome(
                 external_key=candidate.external_key,
                 status=status,
-                notification_eligible=not baseline
-                and status in {ChangeStatus.NEW, ChangeStatus.CHANGED},
+                notification_eligible=event_type is not None,
             )
         )
 
