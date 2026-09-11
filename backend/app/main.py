@@ -20,6 +20,7 @@ from app.ui.dashboard import DASHBOARD_HTML
 from app.ui.dashboard_certainty_filter import render_dashboard_certainty_filter
 from app.ui.dashboard_customization import render_dashboard_html
 from app.ui.dashboard_date_precision import render_dashboard_date_precision
+from app.ui.dashboard_report_persistence import render_dashboard_report_persistence
 from app.ui.dashboard_report_workspace import render_dashboard_report_workspace
 from app.ui.live_source_test import LIVE_SOURCE_TEST_HTML
 from app.ui.theme import apply_dashboard_theme
@@ -51,7 +52,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.13.0",
+        version="0.14.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -88,7 +89,15 @@ def create_app(
             filtered,
             preview_mode=settings.dashboard_preview_mode,
         )
-        themed = apply_dashboard_theme(reporting)
+        report_write_enabled = (
+            settings.dashboard_preview_mode or settings.enable_report_write_routes
+        )
+        persistent_reporting = render_dashboard_report_persistence(
+            reporting,
+            enabled=report_write_enabled,
+            preview_mode=settings.dashboard_preview_mode,
+        )
+        themed = apply_dashboard_theme(persistent_reporting)
         if settings.dashboard_preview_mode:
             themed = themed.replace(
                 "Tallennettu tilannekuva",

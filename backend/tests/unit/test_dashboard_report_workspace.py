@@ -41,7 +41,8 @@ def test_preview_report_is_explicitly_local_and_not_sent() -> None:
     html = response.text
     assert "const previewMode = true;" in html
     assert "fixture-dataa, ei lähetetty" in html
-    assert "ei lähetä raporttia sähköpostiin tai Teamsiin" in html
+    assert "väliaikaiseen fixture-muistiin" in html
+    assert "lähetä raporttia sähköpostiin tai Teamsiin" in html
 
 
 def test_report_workspace_preserves_existing_dashboard_layers() -> None:
