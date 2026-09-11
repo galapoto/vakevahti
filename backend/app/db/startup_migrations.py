@@ -28,12 +28,11 @@ async def run_startup_migrations(settings: Settings) -> None:
         "head",
         cwd=_BACKEND_ROOT,
         env=environment,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
-    stdout, _ = await process.communicate()
-    if process.returncode != 0:
-        output = stdout.decode("utf-8", errors="replace")[-4000:]
+    return_code = await process.wait()
+    if return_code != 0:
         raise StartupMigrationError(
-            f"Alembic startup migration failed with exit code {process.returncode}: {output}"
+            f"Alembic startup migration failed with exit code {return_code}."
         )
