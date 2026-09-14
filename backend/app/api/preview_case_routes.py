@@ -23,73 +23,141 @@ def _artifact_id(case_id: UUID, artifact_type: str, version: int) -> UUID:
     return uuid5(NAMESPACE_URL, f"vakevahti-preview:{case_id}:{artifact_type}:{version}")
 
 
-def _artifacts(case_id: UUID, call_id: int) -> list[FundingCaseArtifactResponse]:
+def _artifact(
+    *,
+    case_id: UUID,
+    call: FundingCallDetail,
+    artifact_type: str,
+    source_app: str,
+    status_value: str,
+    title: str,
+    summary: str,
+    content_text: str | None,
+    content_url: str | None,
+    version: int,
+    approved_at: datetime | None,
+) -> FundingCaseArtifactResponse:
+    return FundingCaseArtifactResponse(
+        id=_artifact_id(case_id, f"{source_app}-{artifact_type}", version),
+        case_id=case_id,
+        source_app=source_app,
+        artifact_type=artifact_type,
+        external_artifact_id=f"{artifact_type.lower()}-{call.id}",
+        version=version,
+        status=status_value,
+        title=title,
+        summary=summary,
+        content_url=content_url,
+        content_text=content_text,
+        mime_type="text/plain" if content_url is None else "text/html",
+        checksum=None,
+        metadata={
+            "preview_fixture": True,
+            "automated": source_app == "VAKEVAHTI_AUTOMATION",
+            "requires_review": status_value == "DRAFT",
+        },
+        created_at=_OBSERVED_AT,
+        updated_at=approved_at or _OBSERVED_AT,
+        approved_at=approved_at,
+    )
+
+
+def _artifacts(case_id: UUID, call: FundingCallDetail) -> list[FundingCaseArtifactResponse]:
     approved_at = datetime(2026, 9, 12, 9, 30, tzinfo=UTC)
-    return [
-        FundingCaseArtifactResponse(
-            id=_artifact_id(case_id, "PROCESS_DESCRIPTION", 2),
+    review_case = call.relevance_status == "NEEDS_REVIEW"
+
+    if review_case:
+        process = _artifact(
             case_id=case_id,
-            source_app="PROSESSIKUVAUS",
+            call=call,
             artifact_type="PROCESS_DESCRIPTION",
-            external_artifact_id=f"process-{call_id}",
-            version=2,
-            status="APPROVED",
+            source_app="VAKEVAHTI_AUTOMATION",
+            status_value="DRAFT",
+            title="Automaattinen prosessikuvausluonnos",
+            summary=(
+                "VakeVahti loi aloitusluonnoksen tunnetuista rahoitustiedoista. "
+                "Tuntemattomat kohdat on merkitty Tarkistettava."
+            ),
+            content_text=(
+                "Prosessin omistaja: Tarkistettava\n"
+                "Hakemuksen valmisteluvastuu: Tarkistettava\n"
+                "Pakolliset liitteet: Tarkistettava lähdeaineistosta\n"
+                "Sisäinen päätöspiste: Tarkistettava\n"
+                "Hakemuksen lähetysvastuu: Tarkistettava"
+            ),
+            content_url=None,
+            version=call.current_version,
+            approved_at=None,
+        )
+        reporting = _artifact(
+            case_id=case_id,
+            call=call,
+            artifact_type="REPORTING",
+            source_app="VAKEVAHTI_AUTOMATION",
+            status_value="DRAFT",
+            title="Automaattinen raportointisuunnitelmaluonnos",
+            summary=(
+                "VakeVahti loi raportoinnin aloitusrungon. Rahoittajakohtaiset "
+                "tuntemattomat vaatimukset on merkitty Tarkistettava."
+            ),
+            content_text=(
+                "Raportoinnin vastuuhenkilö: Tarkistettava\n"
+                "Raportointijaksot: Tarkistettava lähdeaineistosta\n"
+                "Pakolliset KPI:t/mittarit: Tarkistettava lähdeaineistosta\n"
+                "Loppuraportin määräpäivä: Tarkistettava"
+            ),
+            content_url=None,
+            version=call.current_version,
+            approved_at=None,
+        )
+    else:
+        process = _artifact(
+            case_id=case_id,
+            call=call,
+            artifact_type="PROCESS_DESCRIPTION",
+            source_app="PROSESSIKUVAUS",
+            status_value="APPROVED",
             title="Hakuprosessin prosessikuvaus",
             summary=(
                 "Hyväksytty prosessikuvaus sisältää omistajan, valmisteluvaiheet, "
                 "päätöspisteet ja hakemuksen lähetysvastuun."
             ),
-            content_url=f"https://intra.example.test/process/{call_id}/v2",
             content_text=None,
-            mime_type="text/html",
-            checksum=None,
-            metadata={"preview_fixture": True},
-            created_at=_OBSERVED_AT,
-            updated_at=approved_at,
+            content_url=f"https://intra.example.test/process/{call.id}/v2",
+            version=2,
             approved_at=approved_at,
-        ),
-        FundingCaseArtifactResponse(
-            id=_artifact_id(case_id, "REPORTING", 1),
+        )
+        reporting = _artifact(
             case_id=case_id,
-            source_app="RAPORTOINTI",
+            call=call,
             artifact_type="REPORTING",
-            external_artifact_id=f"reporting-{call_id}",
-            version=1,
-            status="APPROVED",
+            source_app="RAPORTOINTI",
+            status_value="APPROVED",
             title="Rahoituksen raportointisuunnitelma",
             summary=(
                 "Raportointirunko sisältää keskeiset KPI:t, vastuut, seurannan ja "
                 "rahoittajan raportointipisteet."
             ),
-            content_url=f"https://intra.example.test/reporting/{call_id}/v1",
             content_text="Kvartaaliseuranta, vastuuhenkilö ja päätösraportin tarkistuspisteet.",
-            mime_type="text/html",
-            checksum=None,
-            metadata={"preview_fixture": True},
-            created_at=_OBSERVED_AT,
-            updated_at=approved_at,
-            approved_at=approved_at,
-        ),
-        FundingCaseArtifactResponse(
-            id=_artifact_id(case_id, "FUNDING_REPORT", 1),
-            case_id=case_id,
-            source_app="VAKEVAHTI",
-            artifact_type="FUNDING_REPORT",
-            external_artifact_id=f"funding-report-{call_id}",
+            content_url=f"https://intra.example.test/reporting/{call.id}/v1",
             version=1,
-            status="DRAFT",
-            title="VakeHyvän rahoitusraportti",
-            summary="Automaattisesti muodostettu rahoitushaun yhteenveto ja soveltuvuusperuste.",
-            content_url=None,
-            content_text=None,
-            mime_type="text/plain",
-            checksum=None,
-            metadata={"preview_fixture": True, "automated": True},
-            created_at=_OBSERVED_AT,
-            updated_at=_OBSERVED_AT,
-            approved_at=None,
-        ),
-    ]
+            approved_at=approved_at,
+        )
+
+    funding_report = _artifact(
+        case_id=case_id,
+        call=call,
+        artifact_type="FUNDING_REPORT",
+        source_app="VAKEVAHTI",
+        status_value="DRAFT",
+        title="VakeHyvän rahoitusraportti",
+        summary="Automaattisesti muodostettu rahoitushaun yhteenveto ja soveltuvuusperuste.",
+        content_text=None,
+        content_url=None,
+        version=1,
+        approved_at=None,
+    )
+    return [process, reporting, funding_report]
 
 
 def _task(
@@ -133,8 +201,12 @@ def _tasks(call: FundingCallDetail) -> tuple[list[FundingCaseTaskResponse], str]
             position=2,
             key="PROCESS_DESCRIPTION",
             title="Valmistele prosessikuvaus",
-            detail="Prosessikuvaus on liitetty ja hyväksytty tähän esikatselucaseen.",
-            completed=True,
+            detail=(
+                "Prosessikuvaus on hyväksytty."
+                if relevant
+                else "Automaattinen luonnos on valmis tarkistettavaksi."
+            ),
+            completed=relevant,
             due_on=due_on,
         ),
         _task(
@@ -142,8 +214,12 @@ def _tasks(call: FundingCallDetail) -> tuple[list[FundingCaseTaskResponse], str]
             position=3,
             key="REPORTING_PLAN",
             title="Valmistele raportointisuunnitelma",
-            detail="Raportointisuunnitelma on liitetty ja hyväksytty tähän esikatselucaseen.",
-            completed=True,
+            detail=(
+                "Raportointisuunnitelma on hyväksytty."
+                if relevant
+                else "Automaattinen luonnos on valmis tarkistettavaksi."
+            ),
+            completed=relevant,
             due_on=due_on,
         ),
         _task(
@@ -186,7 +262,7 @@ def _preview_cases() -> list[FundingCaseResponse]:
                     relevance_reason=call.relevance_reason,
                     current_version=call.current_version,
                 ),
-                artifacts=_artifacts(case_id, call.id),
+                artifacts=_artifacts(case_id, call),
                 tasks=tasks,
                 next_action=next_action,
             )
@@ -229,8 +305,7 @@ async def queue_preview_email(
     payload: FundingCaseEmailSendRequest,
 ) -> FundingCaseEmailQueueResponse:
     case = _find_case(case_id)
-    selected = payload.artifact_ids
-    compose_case_email_package(case, artifact_ids=selected)
+    compose_case_email_package(case, artifact_ids=payload.artifact_ids)
     return FundingCaseEmailQueueResponse(
         case_id=case_id,
         report_id=uuid5(NAMESPACE_URL, f"vakevahti-preview-report:{case_id}"),
