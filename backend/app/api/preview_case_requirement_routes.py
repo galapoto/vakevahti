@@ -4,13 +4,14 @@ from fastapi import APIRouter, HTTPException
 
 from app.api.preview_routes import _PREVIEW_CALLS
 from app.api.requirement_schemas import FundingCaseRequirementResponse
+from app.api.schemas import FundingCallDetail
 from app.services.case_requirements import derive_requirement_specs
 from app.services.funding_cases import stable_case_id
 
 router = APIRouter(prefix="/api/cases", tags=["funding-case-requirements-preview"])
 
 
-def _call_for_case(case_id: UUID):  # type: ignore[no-untyped-def]
+def _call_for_case(case_id: UUID) -> FundingCallDetail:
     for call in _PREVIEW_CALLS:
         if stable_case_id(call.source_code, str(call.id)) == case_id:
             return call
