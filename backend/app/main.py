@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.case_routes import router as case_router
 from app.api.live_test import router as live_test_router
+from app.api.preview_case_routes import router as preview_case_router
 from app.api.preview_report_routes import router as preview_report_router
 from app.api.preview_routes import router as preview_api_router
 from app.api.report_routes import router as report_router
@@ -19,6 +20,7 @@ from app.db.startup_migrations import run_startup_migrations
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.brand import apply_vake_brand_typography
 from app.ui.dashboard import DASHBOARD_HTML
+from app.ui.dashboard_case_workspace import render_dashboard_case_workspace
 from app.ui.dashboard_certainty_filter import render_dashboard_certainty_filter
 from app.ui.dashboard_customization import render_dashboard_html
 from app.ui.dashboard_date_precision import render_dashboard_date_precision
@@ -54,7 +56,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.16.0",
+        version="0.17.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -63,6 +65,7 @@ def create_app(
     application.include_router(selected_router)
 
     if settings.dashboard_preview_mode:
+        application.include_router(preview_case_router)
         application.include_router(preview_report_router)
     else:
         application.include_router(case_router)
@@ -89,8 +92,12 @@ def create_app(
         customized = render_dashboard_html(DASHBOARD_HTML)
         precise = render_dashboard_date_precision(customized)
         filtered = render_dashboard_certainty_filter(precise)
-        reporting = render_dashboard_report_workspace(
+        cases = render_dashboard_case_workspace(
             filtered,
+            preview_mode=settings.dashboard_preview_mode,
+        )
+        reporting = render_dashboard_report_workspace(
+            cases,
             preview_mode=settings.dashboard_preview_mode,
         )
         report_write_enabled = (
