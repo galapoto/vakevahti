@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     dashboard_preview_mode: bool = False
     migrate_database_on_startup: bool = False
     enable_report_write_routes: bool = False
+    enable_case_write_routes: bool = False
     automatic_report_enabled: bool = True
     report_email_recipients: str = ""
     report_email_enabled: bool = False
