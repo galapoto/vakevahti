@@ -402,6 +402,10 @@ async def queue_case_email(
             recipient_emails=request.recipient_emails,
             funding_call_ids=[case.funding_call.id],
         ),
+        case_id=case.id,
+        included_artifact_ids=tuple(
+            artifact.id for artifact in package.included_artifacts
+        ),
     )
     delivery = await enqueue_report_email(session, report)
     if delivery is None:
