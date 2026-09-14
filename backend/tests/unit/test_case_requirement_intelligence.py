@@ -30,7 +30,8 @@ def test_keyword_evidence_is_reviewable_not_promoted_to_confirmed() -> None:
     )
     by_key = _by_key(specs)
 
-    assert by_key["ELIGIBILITY"].certainty == RequirementCertainty.CONFIRMED
+    assert by_key["ELIGIBILITY"].certainty == RequirementCertainty.EVIDENCE_FOUND
+    assert "ei yksin vahvista hakukelpoisuutta" in by_key["ELIGIBILITY"].statement
     assert by_key["APPLICATION_DEADLINE"].certainty == RequirementCertainty.CONFIRMED
     assert by_key["REQUIRED_DOCUMENTS"].certainty == RequirementCertainty.EVIDENCE_FOUND
     assert by_key["BUDGET_AND_COFUNDING"].certainty == RequirementCertainty.EVIDENCE_FOUND
@@ -81,7 +82,7 @@ async def test_preview_case_exposes_requirement_intelligence_and_workspace() -> 
     requirements = response.json()
     assert len(requirements) == 6
     by_key = {item["requirement_key"]: item for item in requirements}
-    assert by_key["ELIGIBILITY"]["certainty"] == "CONFIRMED"
+    assert by_key["ELIGIBILITY"]["certainty"] == "EVIDENCE_FOUND"
     assert by_key["APPLICATION_DEADLINE"]["certainty"] == "CONFIRMED"
     assert by_key["REQUIRED_DOCUMENTS"]["certainty"] == "EVIDENCE_FOUND"
     assert by_key["BUDGET_AND_COFUNDING"]["certainty"] == "EVIDENCE_FOUND"
