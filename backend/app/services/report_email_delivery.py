@@ -242,4 +242,5 @@ def retry_delay_minutes(
 
     if attempt_count < 1:
         raise ValueError("attempt_count must be positive")
-    return min(max_minutes, base_minutes * (2 ** (attempt_count - 1)))
+    delay = base_minutes * (1 << (attempt_count - 1))
+    return min(max_minutes, delay)
