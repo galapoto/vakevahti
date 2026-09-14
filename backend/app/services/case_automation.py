@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -117,6 +118,24 @@ async def sync_case_automation_tasks(
 
     await session.flush()
     return ordered
+
+
+async def refresh_case_automation(session: AsyncSession, case_id: UUID) -> None:
+    """Refresh automated tasks immediately after a trusted case mutation."""
+
+    case = await session.get(FundingCase, case_id)
+    if case is None:
+        return
+    record = await session.get(FundingCallRecord, case.funding_call_id)
+    if record is None:
+        return
+    await sync_case_automation_tasks(
+        session,
+        case=case,
+        record=record,
+        observed_at=datetime.now(UTC),
+    )
+    await session.commit()
 
 
 def case_next_action(tasks: list[FundingCaseTask]) -> str:
