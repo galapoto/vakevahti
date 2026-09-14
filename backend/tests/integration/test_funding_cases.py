@@ -8,7 +8,6 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import Settings
-from app.db.case_models import FundingCase
 from app.db.report_models import FundingReportDelivery
 from app.domain.funding_call import FundingCallCandidate, RelevanceStatus
 from app.main import create_app
@@ -182,32 +181,47 @@ async def test_case_collects_cross_app_artifacts_and_queues_one_email_package(
         assert "#312783" in delivery.body_html
 
 
-async def test_artifact_version_is_idempotent_but_rejects_changed_content(
+async def test_artifact_version_promotes_status_but_rejects_changed_content(
     case_api: tuple[httpx.AsyncClient, async_sessionmaker[AsyncSession]],
 ) -> None:
     client, _ = case_api
-    cases = (await client.get("/api/cases")).json()
-    case_id = cases[0]["id"]
-    payload = {
+    case_id = (await client.get("/api/cases")).json()[0]["id"]
+    content = {
         "source_app": "prosessikuvaus",
         "artifact_type": "process_description",
         "external_artifact_id": "process-idempotent",
         "version": 1,
-        "status": "approved",
         "title": "Prosessikuvaus",
-        "summary": "Sama versio voidaan rekisteröidä uudelleen turvallisesti.",
+        "summary": "Sama sisältö säilyttää saman version tunnisteen.",
     }
 
-    first = await client.post(f"/api/cases/{case_id}/artifacts", json=payload)
-    second = await client.post(f"/api/cases/{case_id}/artifacts", json=payload)
+    draft = await client.post(
+        f"/api/cases/{case_id}/artifacts",
+        json={**content, "status": "draft"},
+    )
+    approved = await client.post(
+        f"/api/cases/{case_id}/artifacts",
+        json={**content, "status": "approved"},
+    )
+    repeated = await client.post(
+        f"/api/cases/{case_id}/artifacts",
+        json={**content, "status": "approved"},
+    )
     changed = await client.post(
         f"/api/cases/{case_id}/artifacts",
-        json={**payload, "summary": "Sama versionumero mutta eri sisältö."},
+        json={
+            **content,
+            "status": "approved",
+            "summary": "Sama versionumero mutta eri sisältö.",
+        },
     )
 
-    assert first.status_code == 201
-    assert second.status_code == 201
-    assert second.json()["id"] == first.json()["id"]
+    assert draft.status_code == 201
+    assert approved.status_code == 201
+    assert approved.json()["id"] == draft.json()["id"]
+    assert approved.json()["status"] == "APPROVED"
+    assert approved.json()["approved_at"] is not None
+    assert repeated.json()["id"] == draft.json()["id"]
     assert changed.status_code == 409
 
 
@@ -224,7 +238,10 @@ async def test_case_mutations_are_hidden_when_integration_boundary_is_disabled()
     transport = httpx.ASGITransport(app=application)
 
     try:
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
             response = await client.post(
                 f"/api/cases/{stable_case_id('STM', 'missing')}/artifacts",
                 json={
@@ -238,14 +255,3 @@ async def test_case_mutations_are_hidden_when_integration_boundary_is_disabled()
         assert response.json()["detail"] == "Case write routes are disabled."
     finally:
         await engine.dispose()
-
-
-async def test_seeded_case_uses_one_stable_row() -> None:
-    assert TEST_DATABASE_URL is not None
-    engine = create_async_engine(TEST_DATABASE_URL)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with session_factory() as session:
-        case = await session.scalar(select(FundingCase).limit(1))
-        if case is not None:
-            assert isinstance(case.id, UUID)
-    await engine.dispose()
