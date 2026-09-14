@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from hashlib import sha256
 from uuid import uuid4
 
