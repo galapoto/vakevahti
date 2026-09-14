@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.models import SourceScanRun
 from app.scanners.base import FundingSourceAdapter
+from app.services.case_sync import ensure_cases_for_source_snapshot
 from app.services.persistence import PersistBatchResult, persist_candidates
 
 logger = logging.getLogger(__name__)
@@ -82,9 +83,10 @@ async def run_source_ingestion(
 ) -> IngestionRunResult:
     """Run one auditable source ingestion using the shared production path.
 
-    The RUNNING audit row is committed before network I/O. Persistence, durable
-    notification intents and the SUCCEEDED audit update are committed together. A
-    source/parsing/persistence exception records a FAILED run and is re-raised.
+    The RUNNING audit row is committed before network I/O. Persistence, stable
+    funding-case synchronization, durable notification intents and the SUCCEEDED
+    audit update are committed together. A source/parsing/persistence exception
+    records a FAILED run and is re-raised.
 
     A scanner may legitimately return zero candidates after recognizing its source
     structure. The adapter's explicit source code is therefore passed to persistence
@@ -121,6 +123,11 @@ async def run_source_ingestion(
                     source_code=scanner.source_code,
                     observed_at=persistence_observed_at,
                     source_scan_run_id=run_id,
+                )
+                await ensure_cases_for_source_snapshot(
+                    session,
+                    source_code=scanner.source_code,
+                    observed_at=persistence_observed_at,
                 )
 
                 run = await session.get(SourceScanRun, run_id, with_for_update=True)
