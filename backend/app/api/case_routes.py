@@ -16,6 +16,7 @@ from app.api.dependencies import get_db_session
 from app.config import Settings
 from app.services.funding_cases import (
     FundingCaseArtifactConflictError,
+    FundingCaseArtifactSelectionError,
     FundingCaseNotFoundError,
     get_case_email_package,
     get_funding_case,
@@ -96,3 +97,8 @@ async def send_case_email(
         return await queue_case_email(session, case_id, payload)
     except FundingCaseNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Funding case not found.") from exc
+    except FundingCaseArtifactSelectionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail={"missing_artifact_ids": [str(value) for value in exc.missing_ids]},
+        ) from exc
