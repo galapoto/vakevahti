@@ -5,7 +5,7 @@ import httpx
 import pytest
 from pydantic import HttpUrl
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.config import Settings
 from app.domain.funding_call import FundingCallCandidate, RelevanceStatus
@@ -77,7 +77,10 @@ async def automation_api() -> httpx.AsyncClient:
     transport = httpx.ASGITransport(app=app)
 
     try:
-        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
             yield client
     finally:
         async with engine.begin() as connection:
@@ -144,4 +147,6 @@ async def test_case_tasks_advance_automatically_when_artifacts_are_approved(
     tasks = _tasks_by_key(after_reporting)
     assert tasks["REPORTING_PLAN"]["status"] == "COMPLETED"
     assert tasks["FUNDING_REPORT_REVIEW"]["status"] == "OPEN"
-    assert after_reporting["next_action"] == "Tarkista rahoitusraportti ja sähköpostipaketti"
+    assert after_reporting["next_action"] == (
+        "Tarkista rahoitusraportti ja sähköpostipaketti"
+    )
