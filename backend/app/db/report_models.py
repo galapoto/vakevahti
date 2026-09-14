@@ -26,6 +26,7 @@ class FundingReport(Base):
     __tablename__ = "funding_reports"
     __table_args__ = (
         Index("ix_funding_reports_status_updated", "status", "updated_at"),
+        Index("ix_funding_reports_case_created", "case_id", "created_at"),
         UniqueConstraint(
             "automation_key",
             name="uq_funding_reports_automation_key",
@@ -33,6 +34,16 @@ class FundingReport(Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    case_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("funding_cases.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    included_artifact_ids: Mapped[list[str]] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=list,
+    )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     origin: Mapped[str] = mapped_column(String(32), nullable=False, default="MANUAL")
