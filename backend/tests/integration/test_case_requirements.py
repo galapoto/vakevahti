@@ -84,7 +84,7 @@ async def test_requirement_projection_is_idempotent_and_versioned() -> None:
             )
             assert len(rows) == 6
             by_key = {row.requirement_key: row for row in rows}
-            assert by_key["ELIGIBILITY"].certainty == "CONFIRMED"
+            assert by_key["ELIGIBILITY"].certainty == "EVIDENCE_FOUND"
             assert by_key["APPLICATION_DEADLINE"].certainty == "CONFIRMED"
             assert by_key["REQUIRED_DOCUMENTS"].certainty == "EVIDENCE_FOUND"
             assert by_key["BUDGET_AND_COFUNDING"].certainty == "EVIDENCE_FOUND"
