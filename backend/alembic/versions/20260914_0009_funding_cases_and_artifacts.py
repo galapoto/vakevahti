@@ -58,6 +58,34 @@ def upgrade() -> None:
         """
     )
 
+    op.add_column(
+        "funding_reports",
+        sa.Column("case_id", sa.Uuid(), nullable=True),
+    )
+    op.add_column(
+        "funding_reports",
+        sa.Column(
+            "included_artifact_ids",
+            postgresql.JSONB(astext_type=sa.Text()),
+            nullable=False,
+            server_default=sa.text("'[]'::jsonb"),
+        ),
+    )
+    op.create_foreign_key(
+        "fk_funding_reports_case_id",
+        "funding_reports",
+        "funding_cases",
+        ["case_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+    op.create_index(
+        "ix_funding_reports_case_created",
+        "funding_reports",
+        ["case_id", "created_at"],
+        unique=False,
+    )
+
     op.create_table(
         "funding_case_artifacts",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -111,5 +139,13 @@ def downgrade() -> None:
         table_name="funding_case_artifacts",
     )
     op.drop_table("funding_case_artifacts")
+    op.drop_index("ix_funding_reports_case_created", table_name="funding_reports")
+    op.drop_constraint(
+        "fk_funding_reports_case_id",
+        "funding_reports",
+        type_="foreignkey",
+    )
+    op.drop_column("funding_reports", "included_artifact_ids")
+    op.drop_column("funding_reports", "case_id")
     op.drop_index("ix_funding_cases_status_updated", table_name="funding_cases")
     op.drop_table("funding_cases")
