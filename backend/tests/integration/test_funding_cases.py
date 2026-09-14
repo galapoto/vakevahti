@@ -8,7 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import Settings
-from app.db.report_models import FundingReportDelivery
+from app.db.report_models import FundingReport, FundingReportDelivery
 from app.domain.funding_call import FundingCallCandidate, RelevanceStatus
 from app.main import create_app
 from app.services.case_sync import ensure_cases_for_source_snapshot
@@ -175,6 +175,13 @@ async def test_case_collects_cross_app_artifacts_and_queues_one_email_package(
                 )
             )
         ).one()
+        report = await session.get(FundingReport, queued["report_id"])
+        assert report is not None
+        assert str(report.case_id) == case_id
+        assert set(report.included_artifact_ids) == {
+            process_v2.json()["id"],
+            reporting.json()["id"],
+        }
         assert delivery.recipient_emails == ["user@example.test", "owner@example.test"]
         assert "Prosessikuvaus" in delivery.body_text
         assert "Raportointi" in delivery.body_text
