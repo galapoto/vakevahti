@@ -270,37 +270,39 @@ def _preferred_artifacts(
 ) -> list[FundingCaseArtifactResponse]:
     if artifact_ids is not None:
         requested = set(artifact_ids)
-        selected = [artifact for artifact in artifacts if artifact.id in requested]
-        found = {artifact.id for artifact in selected}
+        requested_artifacts = [
+            artifact for artifact in artifacts if artifact.id in requested
+        ]
+        found = {artifact.id for artifact in requested_artifacts}
         missing = sorted(requested - found, key=str)
         if missing:
             raise FundingCaseArtifactSelectionError(missing)
-        return selected
+        return requested_artifacts
 
     grouped: dict[tuple[str, str, str], list[FundingCaseArtifactResponse]] = {}
     for artifact in artifacts:
         key = (artifact.source_app, artifact.artifact_type, artifact.external_artifact_id)
         grouped.setdefault(key, []).append(artifact)
 
-    selected: list[FundingCaseArtifactResponse] = []
+    preferred: list[FundingCaseArtifactResponse] = []
     for versions in grouped.values():
         approved = [artifact for artifact in versions if artifact.status == "APPROVED"]
         pool = approved or versions
-        selected.append(max(pool, key=lambda artifact: artifact.version))
-    return sorted(selected, key=lambda artifact: (artifact.artifact_type, artifact.title))
+        preferred.append(max(pool, key=lambda artifact: artifact.version))
+    return sorted(preferred, key=lambda artifact: (artifact.artifact_type, artifact.title))
 
 
 def _deadline_text(case: FundingCaseResponse) -> str:
     call = case.funding_call
     if call.application_deadline_at is not None:
-        value = call.application_deadline_at
+        exact_deadline = call.application_deadline_at
         return (
-            f"{value.day}.{value.month}.{value.year} "
-            f"klo {value.hour:02d}.{value.minute:02d}"
+            f"{exact_deadline.day}.{exact_deadline.month}.{exact_deadline.year} "
+            f"klo {exact_deadline.hour:02d}.{exact_deadline.minute:02d}"
         )
     if call.application_deadline_on is not None:
-        value = call.application_deadline_on
-        return f"{value.day}.{value.month}.{value.year}"
+        deadline_date = call.application_deadline_on
+        return f"{deadline_date.day}.{deadline_date.month}.{deadline_date.year}"
     return "Ei ilmoitettu"
 
 
