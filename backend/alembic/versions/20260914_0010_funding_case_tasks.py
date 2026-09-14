@@ -17,6 +17,46 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _backfill_task(
+    *,
+    task_key: str,
+    title: str,
+    detail: str,
+    completed_sql: str,
+) -> None:
+    op.execute(
+        sa.text(
+            f"""
+            INSERT INTO funding_case_tasks (
+                case_id,
+                task_key,
+                title,
+                detail,
+                status,
+                due_on,
+                created_at,
+                updated_at,
+                completed_at
+            )
+            SELECT
+                c.id,
+                :task_key,
+                :title,
+                :detail,
+                CASE WHEN {completed_sql} THEN 'COMPLETED' ELSE 'OPEN' END,
+                COALESCE(f.application_deadline_on, f.application_deadline_at::date),
+                c.created_at,
+                c.updated_at,
+                CASE WHEN {completed_sql} THEN c.updated_at ELSE NULL END
+            FROM funding_cases AS c
+            JOIN funding_calls AS f ON f.id = c.funding_call_id
+            WHERE c.status = 'OPEN'
+            ON CONFLICT (case_id, task_key) DO NOTHING
+            """
+        ).bindparams(task_key=task_key, title=title, detail=detail)
+    )
+
+
 def upgrade() -> None:
     op.create_table(
         "funding_case_tasks",
@@ -43,6 +83,43 @@ def upgrade() -> None:
         "funding_case_tasks",
         ["case_id", "status", "due_on"],
         unique=False,
+    )
+
+    _backfill_task(
+        task_key="ELIGIBILITY_REVIEW",
+        title="Varmista hakukelpoisuus",
+        detail="Tarkista VakeHyvän hakukelpoisuus ja rahoitushaun rajaukset.",
+        completed_sql="f.relevance_status = 'RELEVANT'",
+    )
+    _backfill_task(
+        task_key="PROCESS_DESCRIPTION",
+        title="Valmistele prosessikuvaus",
+        detail="Liitä tai hyväksy caselle valmistelun prosessikuvaus.",
+        completed_sql=(
+            "EXISTS (SELECT 1 FROM funding_case_artifacts a "
+            "WHERE a.case_id = c.id AND a.artifact_type = 'PROCESS_DESCRIPTION' "
+            "AND a.status = 'APPROVED')"
+        ),
+    )
+    _backfill_task(
+        task_key="REPORTING_PLAN",
+        title="Valmistele raportointisuunnitelma",
+        detail="Liitä tai hyväksy caselle rahoituksen raportointisuunnitelma.",
+        completed_sql=(
+            "EXISTS (SELECT 1 FROM funding_case_artifacts a "
+            "WHERE a.case_id = c.id AND a.artifact_type = 'REPORTING' "
+            "AND a.status = 'APPROVED')"
+        ),
+    )
+    _backfill_task(
+        task_key="FUNDING_REPORT_REVIEW",
+        title="Tarkista rahoitusraportti ja sähköpostipaketti",
+        detail="Tarkista rahoitusraportti, vastaanottajat ja mukaan valitut aineistot.",
+        completed_sql=(
+            "EXISTS (SELECT 1 FROM funding_case_artifacts a "
+            "WHERE a.case_id = c.id AND a.artifact_type = 'FUNDING_REPORT' "
+            "AND a.status = 'APPROVED')"
+        ),
     )
 
 
