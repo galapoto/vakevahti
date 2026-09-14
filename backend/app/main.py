@@ -20,6 +20,7 @@ from app.db.startup_migrations import run_startup_migrations
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.brand import apply_vake_brand_typography
 from app.ui.dashboard import DASHBOARD_HTML
+from app.ui.dashboard_case_tasks import render_dashboard_case_tasks
 from app.ui.dashboard_case_workspace import render_dashboard_case_workspace
 from app.ui.dashboard_certainty_filter import render_dashboard_certainty_filter
 from app.ui.dashboard_customization import render_dashboard_html
@@ -56,7 +57,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.17.0",
+        version="0.18.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -96,8 +97,9 @@ def create_app(
             filtered,
             preview_mode=settings.dashboard_preview_mode,
         )
+        automated_cases = render_dashboard_case_tasks(cases)
         reporting = render_dashboard_report_workspace(
-            cases,
+            automated_cases,
             preview_mode=settings.dashboard_preview_mode,
         )
         report_write_enabled = (
