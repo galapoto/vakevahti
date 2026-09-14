@@ -65,6 +65,8 @@ async def create_report(draft: FundingReportDraftCreate) -> FundingReportRespons
     now = datetime.now(UTC)
     report = FundingReportResponse(
         id=uuid4(),
+        case_id=None,
+        included_artifact_ids=[],
         title=draft.title.strip(),
         status=FundingReportStatus.DRAFT,
         origin=FundingReportOrigin.MANUAL,
