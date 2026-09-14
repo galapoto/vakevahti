@@ -186,19 +186,23 @@ def derive_requirement_specs(
     """Derive conservative structured requirements without inventing source obligations."""
 
     normalized = _normalized_evidence(evidence, default_source_url=source_url)
-    eligibility_confirmed = relevance_status == RelevanceStatus.RELEVANT.value
+    relevance_supported = relevance_status == RelevanceStatus.RELEVANT.value
     eligibility = RequirementSpec(
         requirement_key="ELIGIBILITY",
         category="ELIGIBILITY",
         certainty=(
-            RequirementCertainty.CONFIRMED
-            if eligibility_confirmed
+            RequirementCertainty.EVIDENCE_FOUND
+            if relevance_supported
             else RequirementCertainty.REVIEW_REQUIRED
         ),
         title="Hakukelpoisuus",
         statement=(
-            relevance_reason
-            if eligibility_confirmed
+            (
+                "VakeVahti on luokitellut haun VakeHyvälle relevantiksi, mutta tämä ei yksin "
+                f"vahvista hakukelpoisuutta. Peruste: {relevance_reason} "
+                "Vahvista hakijakelpoisuus rahoittajan ehdoista ennen etenemistä."
+            )
+            if relevance_supported
             else f"Hakukelpoisuus on tarkistettava: {relevance_reason}"
         ),
         source_url=source_url,
