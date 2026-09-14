@@ -14,6 +14,7 @@ from app.api.case_schemas import (
 )
 from app.api.dependencies import get_db_session
 from app.config import Settings
+from app.services.case_automation import refresh_case_automation
 from app.services.funding_cases import (
     FundingCaseArtifactConflictError,
     FundingCaseArtifactSelectionError,
@@ -72,7 +73,9 @@ async def attach_artifact(
 ) -> FundingCaseArtifactResponse:
     _require_case_writes(request)
     try:
-        return await register_case_artifact(session, case_id, artifact)
+        response = await register_case_artifact(session, case_id, artifact)
+        await refresh_case_automation(session, case_id)
+        return response
     except FundingCaseNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Funding case not found.") from exc
     except FundingCaseArtifactConflictError as exc:
