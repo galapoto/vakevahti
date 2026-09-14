@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import APIRouter, HTTPException, status
@@ -13,6 +13,7 @@ from app.api.case_schemas import (
     FundingCaseTaskResponse,
 )
 from app.api.preview_routes import _OBSERVED_AT, _PREVIEW_CALLS
+from app.api.schemas import FundingCallDetail
 from app.services.funding_cases import compose_case_email_package, stable_case_id
 
 router = APIRouter(prefix="/api/cases", tags=["funding-cases-preview"])
@@ -99,7 +100,7 @@ def _task(
     title: str,
     detail: str,
     completed: bool,
-    due_on: object,
+    due_on: date | None,
 ) -> FundingCaseTaskResponse:
     return FundingCaseTaskResponse(
         id=call_id * 10 + position,
@@ -114,13 +115,12 @@ def _task(
     )
 
 
-def _tasks(call: object) -> tuple[list[FundingCaseTaskResponse], str]:
-    call_id = call.id
+def _tasks(call: FundingCallDetail) -> tuple[list[FundingCaseTaskResponse], str]:
     due_on = call.application_deadline_on
     relevant = call.relevance_status == "RELEVANT"
     tasks = [
         _task(
-            call_id=call_id,
+            call_id=call.id,
             position=1,
             key="ELIGIBILITY_REVIEW",
             title="Varmista hakukelpoisuus",
@@ -129,7 +129,7 @@ def _tasks(call: object) -> tuple[list[FundingCaseTaskResponse], str]:
             due_on=due_on,
         ),
         _task(
-            call_id=call_id,
+            call_id=call.id,
             position=2,
             key="PROCESS_DESCRIPTION",
             title="Valmistele prosessikuvaus",
@@ -138,7 +138,7 @@ def _tasks(call: object) -> tuple[list[FundingCaseTaskResponse], str]:
             due_on=due_on,
         ),
         _task(
-            call_id=call_id,
+            call_id=call.id,
             position=3,
             key="REPORTING_PLAN",
             title="Valmistele raportointisuunnitelma",
@@ -147,7 +147,7 @@ def _tasks(call: object) -> tuple[list[FundingCaseTaskResponse], str]:
             due_on=due_on,
         ),
         _task(
-            call_id=call_id,
+            call_id=call.id,
             position=4,
             key="FUNDING_REPORT_REVIEW",
             title="Tarkista rahoitusraportti ja sähköpostipaketti",
