@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from hashlib import md5, sha256
 from uuid import UUID, uuid4
@@ -30,6 +31,12 @@ class FundingCaseArtifactConflictError(RuntimeError):
     pass
 
 
+class FundingCaseArtifactSelectionError(ValueError):
+    def __init__(self, missing_ids: list[UUID]) -> None:
+        self.missing_ids = missing_ids
+        super().__init__(f"Artifacts are not attached to this funding case: {missing_ids}")
+
+
 def stable_case_id(source_code: str, external_key: str) -> UUID:
     """Return the same cross-app case ID for the same upstream opportunity identity."""
 
@@ -44,16 +51,21 @@ async def ensure_funding_case(
     *,
     observed_at: datetime,
 ) -> FundingCase | None:
-    """Ensure every employee-visible funding opportunity has one stable case."""
-
-    if record.relevance_status == RelevanceStatus.NOT_RELEVANT.value:
-        return None
+    """Synchronize one opportunity with its stable cross-app funding case."""
 
     result = await session.execute(
         select(FundingCase).where(FundingCase.funding_call_id == record.id)
     )
     existing = result.scalar_one_or_none()
+
+    if record.relevance_status == RelevanceStatus.NOT_RELEVANT.value:
+        if existing is not None:
+            existing.status = "NOT_RELEVANT"
+            existing.updated_at = observed_at
+        return None
+
     if existing is not None:
+        existing.status = "OPEN"
         existing.updated_at = observed_at
         return existing
 
@@ -135,7 +147,9 @@ async def _case_response(
 
 async def list_funding_cases(session: AsyncSession) -> list[FundingCaseResponse]:
     result = await session.execute(
-        select(FundingCase).order_by(FundingCase.updated_at.desc(), FundingCase.id.asc())
+        select(FundingCase)
+        .where(FundingCase.status == "OPEN")
+        .order_by(FundingCase.updated_at.desc(), FundingCase.id.asc())
     )
     return [await _case_response(session, case) for case in result.scalars()]
 
@@ -150,19 +164,30 @@ async def get_funding_case(
     return await _case_response(session, case)
 
 
+def _normalized_artifact_content(draft: FundingCaseArtifactCreate) -> str:
+    metadata = json.dumps(
+        draft.metadata,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+    return "\x1f".join(
+        [
+            draft.title.strip(),
+            draft.summary.strip() if draft.summary else "",
+            draft.content_url.strip() if draft.content_url else "",
+            draft.content_text.strip() if draft.content_text else "",
+            draft.mime_type.strip() if draft.mime_type else "",
+            metadata,
+        ]
+    )
+
+
 def _artifact_checksum(draft: FundingCaseArtifactCreate) -> str:
     if draft.checksum:
         return draft.checksum.lower()
-    material = "\x1f".join(
-        [
-            draft.title,
-            draft.summary or "",
-            draft.content_url or "",
-            draft.content_text or "",
-            draft.mime_type or "",
-        ]
-    )
-    return sha256(material.encode("utf-8")).hexdigest()
+    return sha256(_normalized_artifact_content(draft).encode("utf-8")).hexdigest()
 
 
 async def register_case_artifact(
@@ -170,6 +195,8 @@ async def register_case_artifact(
     case_id: UUID,
     draft: FundingCaseArtifactCreate,
 ) -> FundingCaseArtifactResponse:
+    """Register immutable artifact content while allowing idempotent status promotion."""
+
     case = await session.get(FundingCase, case_id)
     if case is None:
         raise FundingCaseNotFoundError(str(case_id))
@@ -183,14 +210,27 @@ async def register_case_artifact(
     )
     existing = (await session.scalars(statement)).one_or_none()
     checksum = _artifact_checksum(draft)
+    now = datetime.now(UTC)
+
     if existing is not None:
         if existing.checksum != checksum:
             raise FundingCaseArtifactConflictError(
                 "The same artifact version is already registered with different content."
             )
+        if existing.status != draft.status or draft.approved_at is not None:
+            existing.status = draft.status
+            existing.updated_at = now
+            existing.approved_at = (
+                draft.approved_at
+                or existing.approved_at
+                or (now if draft.status == "APPROVED" else None)
+            )
+            if draft.status != "APPROVED" and draft.approved_at is None:
+                existing.approved_at = None
+            case.updated_at = now
+            await session.commit()
         return _artifact_response(existing)
 
-    now = datetime.now(UTC)
     artifact = FundingCaseArtifact(
         id=uuid4(),
         case_id=case_id,
@@ -230,7 +270,12 @@ def _preferred_artifacts(
 ) -> list[FundingCaseArtifactResponse]:
     if artifact_ids is not None:
         requested = set(artifact_ids)
-        return [artifact for artifact in artifacts if artifact.id in requested]
+        selected = [artifact for artifact in artifacts if artifact.id in requested]
+        found = {artifact.id for artifact in selected}
+        missing = sorted(requested - found, key=str)
+        if missing:
+            raise FundingCaseArtifactSelectionError(missing)
+        return selected
 
     grouped: dict[tuple[str, str, str], list[FundingCaseArtifactResponse]] = {}
     for artifact in artifacts:
@@ -249,7 +294,10 @@ def _deadline_text(case: FundingCaseResponse) -> str:
     call = case.funding_call
     if call.application_deadline_at is not None:
         value = call.application_deadline_at
-        return f"{value.day}.{value.month}.{value.year} klo {value.hour:02d}.{value.minute:02d}"
+        return (
+            f"{value.day}.{value.month}.{value.year} "
+            f"klo {value.hour:02d}.{value.minute:02d}"
+        )
     if call.application_deadline_on is not None:
         value = call.application_deadline_on
         return f"{value.day}.{value.month}.{value.year}"
@@ -261,6 +309,8 @@ def compose_case_email_package(
     *,
     artifact_ids: list[UUID] | None = None,
 ) -> FundingCaseEmailPackage:
+    """Compose one editable email package from the funding case and linked artifacts."""
+
     selected = _preferred_artifacts(case.artifacts, artifact_ids)
     call = case.funding_call
     lines = [
@@ -281,7 +331,10 @@ def compose_case_email_package(
         "ATTACHMENT": "Liite",
     }
     for artifact in selected:
-        label = labels.get(artifact.artifact_type, artifact.artifact_type.replace("_", " ").title())
+        label = labels.get(
+            artifact.artifact_type,
+            artifact.artifact_type.replace("_", " ").title(),
+        )
         lines.extend(
             [
                 label,
@@ -329,9 +382,15 @@ async def queue_case_email(
     case_id: UUID,
     request: FundingCaseEmailSendRequest,
 ) -> FundingCaseEmailQueueResponse:
+    """Snapshot and queue an editable case package through durable report delivery."""
+
     case = await get_funding_case(session, case_id)
     package = compose_case_email_package(case, artifact_ids=request.artifact_ids)
-    subject = request.subject.strip() if request.subject and request.subject.strip() else package.subject
+    subject = (
+        request.subject.strip()
+        if request.subject and request.subject.strip()
+        else package.subject
+    )
     body = request.body.strip() if request.body and request.body.strip() else package.body
     report = await create_funding_report(
         session,
@@ -346,7 +405,9 @@ async def queue_case_email(
     )
     delivery = await enqueue_report_email(session, report)
     if delivery is None:
-        raise RuntimeError("Case email was not queueable despite validated recipients and content.")
+        raise RuntimeError(
+            "Case email was not queueable despite validated recipients and content."
+        )
     await session.commit()
     return FundingCaseEmailQueueResponse(
         case_id=case.id,
