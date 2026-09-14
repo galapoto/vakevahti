@@ -25,11 +25,14 @@ class StarterDraft:
 
 def _deadline_text(record: FundingCallRecord) -> str:
     if record.application_deadline_at is not None:
-        value = record.application_deadline_at
-        return f"{value.day}.{value.month}.{value.year} klo {value.hour:02d}.{value.minute:02d}"
+        exact_deadline = record.application_deadline_at
+        return (
+            f"{exact_deadline.day}.{exact_deadline.month}.{exact_deadline.year} "
+            f"klo {exact_deadline.hour:02d}.{exact_deadline.minute:02d}"
+        )
     if record.application_deadline_on is not None:
-        value = record.application_deadline_on
-        return f"{value.day}.{value.month}.{value.year}"
+        deadline_date = record.application_deadline_on
+        return f"{deadline_date.day}.{deadline_date.month}.{deadline_date.year}"
     return "Tarkistettava"
 
 
