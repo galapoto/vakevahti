@@ -24,6 +24,9 @@ from app.services.case_automation import case_next_action
 from app.services.funding_reports import create_funding_report
 from app.services.report_email_delivery import enqueue_report_email
 
+_AUTOMATION_SOURCE = "VAKEVAHTI_AUTOMATION"
+_AUTOMATION_FALLBACK_TYPES = frozenset({"PROCESS_DESCRIPTION", "REPORTING"})
+
 
 class FundingCaseNotFoundError(LookupError):
     pass
@@ -313,6 +316,21 @@ def _preferred_artifacts(
         approved = [artifact for artifact in versions if artifact.status == "APPROVED"]
         pool = approved or versions
         preferred.append(max(pool, key=lambda artifact: artifact.version))
+
+    real_artifact_types = {
+        artifact.artifact_type
+        for artifact in preferred
+        if artifact.source_app != _AUTOMATION_SOURCE
+        and artifact.artifact_type in _AUTOMATION_FALLBACK_TYPES
+    }
+    preferred = [
+        artifact
+        for artifact in preferred
+        if not (
+            artifact.source_app == _AUTOMATION_SOURCE
+            and artifact.artifact_type in real_artifact_types
+        )
+    ]
     return sorted(preferred, key=lambda artifact: (artifact.artifact_type, artifact.title))
 
 
