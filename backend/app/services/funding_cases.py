@@ -40,7 +40,7 @@ class FundingCaseArtifactSelectionError(ValueError):
 def stable_case_id(source_code: str, external_key: str) -> UUID:
     """Return the same cross-app case ID for the same upstream opportunity identity."""
 
-    material = f"vakevahti-case:{source_code}:{external_key}".encode("utf-8")
+    material = f"vakevahti-case:{source_code}:{external_key}".encode()
     digest = md5(material, usedforsecurity=False).hexdigest()
     return UUID(hex=digest)
 
@@ -187,7 +187,7 @@ def _normalized_artifact_content(draft: FundingCaseArtifactCreate) -> str:
 def _artifact_checksum(draft: FundingCaseArtifactCreate) -> str:
     if draft.checksum:
         return draft.checksum.lower()
-    return sha256(_normalized_artifact_content(draft).encode("utf-8")).hexdigest()
+    return sha256(_normalized_artifact_content(draft).encode()).hexdigest()
 
 
 async def register_case_artifact(
