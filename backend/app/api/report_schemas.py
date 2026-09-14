@@ -82,6 +82,8 @@ class FundingReportItemResponse(BaseModel):
 
 class FundingReportResponse(BaseModel):
     id: UUID
+    case_id: UUID | None
+    included_artifact_ids: list[UUID]
     title: str
     status: FundingReportStatus
     origin: FundingReportOrigin
