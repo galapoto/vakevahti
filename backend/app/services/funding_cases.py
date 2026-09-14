@@ -14,11 +14,13 @@ from app.api.case_schemas import (
     FundingCaseEmailQueueResponse,
     FundingCaseEmailSendRequest,
     FundingCaseResponse,
+    FundingCaseTaskResponse,
 )
 from app.api.report_schemas import FundingReportDraftCreate
-from app.db.case_models import FundingCase, FundingCaseArtifact
+from app.db.case_models import FundingCase, FundingCaseArtifact, FundingCaseTask
 from app.db.models import FundingCallRecord
 from app.domain.funding_call import RelevanceStatus
+from app.services.case_automation import case_next_action
 from app.services.funding_reports import create_funding_report
 from app.services.report_email_delivery import enqueue_report_email
 
@@ -103,6 +105,20 @@ def _artifact_response(row: FundingCaseArtifact) -> FundingCaseArtifactResponse:
     )
 
 
+def _task_response(row: FundingCaseTask) -> FundingCaseTaskResponse:
+    return FundingCaseTaskResponse(
+        id=row.id,
+        task_key=row.task_key,
+        title=row.title,
+        detail=row.detail,
+        status=row.status,
+        due_on=row.due_on,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        completed_at=row.completed_at,
+    )
+
+
 def _call_summary(record: FundingCallRecord) -> FundingCaseCallSummary:
     return FundingCaseCallSummary(
         id=record.id,
@@ -124,7 +140,7 @@ async def _case_response(
     record = await session.get(FundingCallRecord, case.funding_call_id)
     if record is None:
         raise FundingCaseNotFoundError(str(case.id))
-    result = await session.execute(
+    artifact_result = await session.execute(
         select(FundingCaseArtifact)
         .where(FundingCaseArtifact.case_id == case.id)
         .order_by(
@@ -134,7 +150,13 @@ async def _case_response(
             FundingCaseArtifact.version.desc(),
         )
     )
-    artifacts = [_artifact_response(row) for row in result.scalars()]
+    artifacts = [_artifact_response(row) for row in artifact_result.scalars()]
+    task_result = await session.execute(
+        select(FundingCaseTask)
+        .where(FundingCaseTask.case_id == case.id)
+        .order_by(FundingCaseTask.id.asc())
+    )
+    task_rows = list(task_result.scalars())
     return FundingCaseResponse(
         id=case.id,
         status=case.status,
@@ -142,6 +164,8 @@ async def _case_response(
         updated_at=case.updated_at,
         funding_call=_call_summary(record),
         artifacts=artifacts,
+        tasks=[_task_response(row) for row in task_rows],
+        next_action=case_next_action(task_rows),
     )
 
 

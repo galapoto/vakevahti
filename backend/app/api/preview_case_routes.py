@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fastapi import APIRouter, HTTPException, status
@@ -10,8 +10,10 @@ from app.api.case_schemas import (
     FundingCaseEmailQueueResponse,
     FundingCaseEmailSendRequest,
     FundingCaseResponse,
+    FundingCaseTaskResponse,
 )
 from app.api.preview_routes import _OBSERVED_AT, _PREVIEW_CALLS
+from app.api.schemas import FundingCallDetail
 from app.services.funding_cases import compose_case_email_package, stable_case_id
 
 router = APIRouter(prefix="/api/cases", tags=["funding-cases-preview"])
@@ -90,10 +92,83 @@ def _artifacts(case_id: UUID, call_id: int) -> list[FundingCaseArtifactResponse]
     ]
 
 
+def _task(
+    *,
+    call_id: int,
+    position: int,
+    key: str,
+    title: str,
+    detail: str,
+    completed: bool,
+    due_on: date | None,
+) -> FundingCaseTaskResponse:
+    return FundingCaseTaskResponse(
+        id=call_id * 10 + position,
+        task_key=key,
+        title=title,
+        detail=detail,
+        status="COMPLETED" if completed else "OPEN",
+        due_on=due_on,
+        created_at=_OBSERVED_AT,
+        updated_at=_OBSERVED_AT,
+        completed_at=_OBSERVED_AT if completed else None,
+    )
+
+
+def _tasks(call: FundingCallDetail) -> tuple[list[FundingCaseTaskResponse], str]:
+    due_on = call.application_deadline_on
+    relevant = call.relevance_status == "RELEVANT"
+    tasks = [
+        _task(
+            call_id=call.id,
+            position=1,
+            key="ELIGIBILITY_REVIEW",
+            title="Varmista hakukelpoisuus",
+            detail="Tarkista VakeHyvän hakukelpoisuus ja rahoitushaun rajaukset.",
+            completed=relevant,
+            due_on=due_on,
+        ),
+        _task(
+            call_id=call.id,
+            position=2,
+            key="PROCESS_DESCRIPTION",
+            title="Valmistele prosessikuvaus",
+            detail="Prosessikuvaus on liitetty ja hyväksytty tähän esikatselucaseen.",
+            completed=True,
+            due_on=due_on,
+        ),
+        _task(
+            call_id=call.id,
+            position=3,
+            key="REPORTING_PLAN",
+            title="Valmistele raportointisuunnitelma",
+            detail="Raportointisuunnitelma on liitetty ja hyväksytty tähän esikatselucaseen.",
+            completed=True,
+            due_on=due_on,
+        ),
+        _task(
+            call_id=call.id,
+            position=4,
+            key="FUNDING_REPORT_REVIEW",
+            title="Tarkista rahoitusraportti ja sähköpostipaketti",
+            detail="Tarkista raportti, vastaanottajat, viesti ja mukaan valitut aineistot.",
+            completed=False,
+            due_on=due_on,
+        ),
+    ]
+    next_action = (
+        "Tarkista rahoitusraportti ja sähköpostipaketti"
+        if relevant
+        else "Varmista hakukelpoisuus"
+    )
+    return tasks, next_action
+
+
 def _preview_cases() -> list[FundingCaseResponse]:
     cases: list[FundingCaseResponse] = []
     for call in _PREVIEW_CALLS:
         case_id = stable_case_id(call.source_code, str(call.id))
+        tasks, next_action = _tasks(call)
         cases.append(
             FundingCaseResponse(
                 id=case_id,
@@ -112,6 +187,8 @@ def _preview_cases() -> list[FundingCaseResponse]:
                     current_version=call.current_version,
                 ),
                 artifacts=_artifacts(case_id, call.id),
+                tasks=tasks,
+                next_action=next_action,
             )
         )
     return cases

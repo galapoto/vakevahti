@@ -73,6 +73,18 @@ class FundingCaseArtifactResponse(BaseModel):
     approved_at: datetime | None
 
 
+class FundingCaseTaskResponse(BaseModel):
+    id: int
+    task_key: str
+    title: str
+    detail: str
+    status: str
+    due_on: date | None
+    created_at: datetime
+    updated_at: datetime
+    completed_at: datetime | None
+
+
 class FundingCaseCallSummary(BaseModel):
     id: int
     source_code: str
@@ -92,6 +104,8 @@ class FundingCaseResponse(BaseModel):
     updated_at: datetime
     funding_call: FundingCaseCallSummary
     artifacts: list[FundingCaseArtifactResponse] = Field(default_factory=list)
+    tasks: list[FundingCaseTaskResponse] = Field(default_factory=list)
+    next_action: str = ""
 
 
 class FundingCaseEmailPackage(BaseModel):
