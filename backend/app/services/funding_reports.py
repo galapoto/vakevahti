@@ -61,6 +61,8 @@ async def _response(session: AsyncSession, report: FundingReport) -> FundingRepo
     items = list(item_result.scalars())
     return FundingReportResponse(
         id=report.id,
+        case_id=report.case_id,
+        included_artifact_ids=[UUID(value) for value in report.included_artifact_ids],
         title=report.title,
         status=FundingReportStatus(report.status),
         origin=FundingReportOrigin(report.origin),
@@ -87,8 +89,11 @@ async def _response(session: AsyncSession, report: FundingReport) -> FundingRepo
 async def create_funding_report(
     session: AsyncSession,
     draft: FundingReportDraftCreate,
+    *,
+    case_id: UUID | None = None,
+    included_artifact_ids: tuple[UUID, ...] = (),
 ) -> FundingReportResponse:
-    """Persist a manually prepared report draft and immutable call snapshots."""
+    """Persist a report draft and immutable call/case/artifact references."""
 
     result = await session.execute(
         select(FundingCallRecord).where(FundingCallRecord.id.in_(draft.funding_call_ids))
@@ -101,6 +106,8 @@ async def create_funding_report(
     now = datetime.now(UTC)
     report = FundingReport(
         id=uuid4(),
+        case_id=case_id,
+        included_artifact_ids=[str(value) for value in included_artifact_ids],
         title=draft.title.strip(),
         status=FundingReportStatus.DRAFT.value,
         origin=FundingReportOrigin.MANUAL.value,
@@ -210,6 +217,8 @@ async def create_automated_funding_report(
 
     report = FundingReport(
         id=uuid4(),
+        case_id=None,
+        included_artifact_ids=[],
         title=composition.title,
         status=FundingReportStatus.DRAFT.value,
         origin=FundingReportOrigin.AUTOMATED.value,
