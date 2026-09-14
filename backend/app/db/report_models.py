@@ -85,3 +85,57 @@ class FundingReportItem(Base):
     funding_call_version: Mapped[int] = mapped_column(Integer, nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+
+class FundingReportDelivery(Base):
+    """Durable, leased email delivery intent for one immutable report composition."""
+
+    __tablename__ = "funding_report_deliveries"
+    __table_args__ = (
+        UniqueConstraint(
+            "dedupe_key",
+            name="uq_funding_report_deliveries_dedupe_key",
+        ),
+        Index(
+            "ix_funding_report_deliveries_status_next_attempt",
+            "status",
+            "next_attempt_at",
+            "created_at",
+        ),
+        Index(
+            "ix_funding_report_deliveries_claim_expiry",
+            "status",
+            "claim_expires_at",
+        ),
+        Index(
+            "ix_funding_report_deliveries_report",
+            "report_id",
+            "created_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    report_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("funding_reports.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    dedupe_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    channel: Mapped[str] = mapped_column(String(32), nullable=False, default="EMAIL")
+    recipient_emails: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    subject: Mapped[str] = mapped_column(Text, nullable=False)
+    body_text: Mapped[str] = mapped_column(Text, nullable=False)
+    body_html: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING")
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    claim_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    claim_token: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
