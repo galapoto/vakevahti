@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.api.case_routes import router as case_router
 from app.api.live_test import router as live_test_router
 from app.api.preview_report_routes import router as preview_report_router
 from app.api.preview_routes import router as preview_api_router
@@ -53,7 +54,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.15.0",
+        version="0.16.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -63,8 +64,10 @@ def create_app(
 
     if settings.dashboard_preview_mode:
         application.include_router(preview_report_router)
-    elif settings.enable_report_write_routes:
-        application.include_router(report_router)
+    else:
+        application.include_router(case_router)
+        if settings.enable_report_write_routes:
+            application.include_router(report_router)
 
     if settings.enable_live_test_routes:
         application.include_router(live_test_router)
