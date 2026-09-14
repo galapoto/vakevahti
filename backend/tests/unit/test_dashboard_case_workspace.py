@@ -91,7 +91,9 @@ async def test_preview_review_case_keeps_eligibility_as_first_automated_action()
         response = await client.get("/api/cases")
 
     review_case = next(
-        case for case in response.json() if case["funding_call"]["relevance_status"] == "NEEDS_REVIEW"
+        case
+        for case in response.json()
+        if case["funding_call"]["relevance_status"] == "NEEDS_REVIEW"
     )
     task_by_key = {task["task_key"]: task for task in review_case["tasks"]}
     assert task_by_key["ELIGIBILITY_REVIEW"]["status"] == "OPEN"
