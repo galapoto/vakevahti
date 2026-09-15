@@ -6,17 +6,29 @@ It remains independently runnable now, but its architecture is being kept extrac
 
 ## Current implemented flow
 
-`STM -> HTTP -> semantic HTML parsing -> FundingCallCandidate -> validation -> persistence -> change detection -> audit`
+VakeVahti now implements the funding-monitoring path across the five authoritative source families:
 
-Persistence:
+`STM / Haeavustuksia.fi / EURA 2021 / Sitra / Suomen Akatemia`
 
-`FundingCallCandidate -> canonical content hash -> PostgreSQL -> NEW / UNCHANGED / CHANGED -> immutable versions`
+Core data path:
 
-Operational ingestion:
+`scheduled scan -> source adapter -> normalize/validate -> relevance classification -> PostgreSQL -> NEW / UNCHANGED / CHANGED -> immutable versions -> scan audit`
 
-`trigger -> shared ingestion service -> source scan -> PostgreSQL transaction -> source_scan_runs audit`
+Operational behavior includes source-specific baselines, idempotent re-scans, source-health state, explicit `NEEDS_REVIEW` handling for ambiguous eligibility, and fail-visible parser behavior when a public source changes structure.
 
-The managed workplace PC currently has no approved local PostgreSQL or Docker runtime. Database-independent checks and the mentor UI remain runnable locally; PostgreSQL migrations and integration behavior are validated in GitHub Actions against PostgreSQL 16.
+Downstream workflow now includes:
+
+- persisted funding-call and source-health read APIs;
+- a durable notification outbox with deduplication, lease-based claiming, retry state and delivery boundaries;
+- persisted funding-report drafts, editable email content and submission to a coordinator-approval queue;
+- durable report-email delivery with retry semantics;
+- stable funding `case_id` identities that survive funding-call content changes;
+- versioned cross-app artifacts for Prosessikuvaus, Raportointi and later VakeTomatti modules;
+- a unified funding-case workspace with automated workflow tasks and next-action guidance;
+- automatic Prosessikuvaus and Raportointi starter drafts for new/reviewable cases; and
+- a fixture-backed preview mode for UI/workflow validation without mutating production data.
+
+The employee dashboard reads persisted application state. It does not trigger public-source scans when the page is opened.
 
 ## Development UI
 
@@ -127,11 +139,14 @@ This keeps VakeVahti capable of growing from funding monitoring into a much larg
 
 ## Next build priorities
 
-1. Complete operational scan-run audit and scheduled ingestion validation.
-2. Add persisted read APIs and source-health endpoints.
-3. Add notification deduplication and delivery boundary.
-4. Add Sitra and Suomen Akatemia adapters.
-5. Add Haeavustuksia eligibility rules.
-6. Add EURA region + eligibility rules.
-7. Expand the funding lifecycle from opportunity monitoring toward application/project tracking.
-8. Replace the development dashboard with the employee-facing application UI when backend workflows are ready.
+The earlier source-ingestion/read-API/outbox priorities are complete. The next slices should move the system from a strong funding-monitoring workflow into an approved employee production workflow:
+
+1. **Complete the coordinator approval state machine and audit trail.** Reports can currently move from `DRAFT` to `WAITING_APPROVAL`; add explicit approve/reject/return-for-edit decisions, immutable approval evidence, actor identity and timestamps.
+2. **Add approved organization identity and authorization.** Replace environment-variable write gates with the VakeTomatti/organization SSO boundary plus permissions such as read, review, edit, approve and administer. Authentication must not imply universal authorization.
+3. **Connect approved workplace delivery infrastructure.** Keep the existing outbox/retry contracts, but wire production email/notification transport, secrets and operational alerting only through approved deployment configuration.
+4. **Integrate real cross-app artifacts.** Replace starter-only Prosessikuvaus/Raportointi content with versioned artifacts produced by those modules; add authorized file/deep-link handling without copying confidential documents into unsafe locations.
+5. **Expand opportunity -> application -> project lifecycle.** Add application ownership, decision/status history, deadlines and the published Project-service handoff when a funded application becomes a project.
+6. **Integrate with the VakeTomatti shell.** Reuse shared identity, audit aggregation, scheduling, notification and project-management contracts while keeping Funding tables and business logic domain-owned.
+7. **Production hardening and final employee UX.** Finish role-aware audit views, operational alerts/metrics, accessibility, deployment runbooks, backup/recovery expectations and the final employee-facing application shell.
+
+Do not restart already completed source adapters, persisted read APIs or notification deduplication merely because older documentation lists them as future work.
