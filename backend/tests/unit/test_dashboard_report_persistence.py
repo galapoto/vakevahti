@@ -18,8 +18,16 @@ def test_preview_dashboard_exposes_real_save_and_submit_controls() -> None:
     html = response.text
     assert 'id="report-save"' in html
     assert "Tallenna luonnos" in html
-    assert 'fetch("/api/reports"' in html
+    assert '"/api/reports"' in html
     assert "/submit" in html
+    assert "/decision" in html
+    assert 'id="report-approve"' in html
+    assert 'id="report-return"' in html
+    assert 'id="report-reject"' in html
+    assert 'id="report-revise"' in html
+    assert "/revise" in html
+    assert "Luo uusi versio" in html
+    assert "korvataan organisaation SSO-identiteetillä" in html
     assert "Testiluonnos tallennettu" in html
     assert "fixture-muistiin" in html
 

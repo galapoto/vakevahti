@@ -63,6 +63,10 @@ _REPORT_STYLES = r"""
   }
 
   .report-status.waiting::before { background: #E6007E; }
+  .report-status.approved { border-color: #1FB578; color: #006d45; }
+  .report-status.approved::before { background: #1FB578; }
+  .report-status.rejected { border-color: #D90066; color: #A0004B; }
+  .report-status.rejected::before { background: #D90066; }
 
   .report-metrics {
     display: grid;
@@ -468,9 +472,16 @@ _REPORT_SCRIPT_TEMPLATE = r"""
 
   function updateStatus(nextStatus) {
     status = nextStatus;
-    const waiting = status === "WAITING_APPROVAL";
-    ui.status.textContent = waiting ? "Odottaa koordinaattorin hyväksyntää" : "Luonnos";
-    ui.status.classList.toggle("waiting", waiting);
+    const labels = {
+      DRAFT: "Luonnos",
+      WAITING_APPROVAL: "Odottaa koordinaattorin hyväksyntää",
+      APPROVED: "Hyväksytty",
+      REJECTED: "Hylätty",
+    };
+    ui.status.textContent = labels[status] || status;
+    ui.status.classList.toggle("waiting", status === "WAITING_APPROVAL");
+    ui.status.classList.toggle("approved", status === "APPROVED");
+    ui.status.classList.toggle("rejected", status === "REJECTED");
   }
 
   function updateMetrics() {
@@ -555,11 +566,13 @@ _REPORT_SCRIPT_TEMPLATE = r"""
       lines.push(notes);
       lines.push("");
     }
-    lines.push(
-      status === "WAITING_APPROVAL"
-        ? "Tila: Odottaa koordinaattorin hyväksyntää"
-        : "Tila: Luonnos"
-    );
+    const reportStatusLabels = {
+      DRAFT: "Luonnos",
+      WAITING_APPROVAL: "Odottaa koordinaattorin hyväksyntää",
+      APPROVED: "Hyväksytty",
+      REJECTED: "Hylätty",
+    };
+    lines.push(`Tila: ${reportStatusLabels[status] || status}`);
     if (previewMode) lines.push("Kehitysesikatselu: fixture-dataa, ei lähetetty.");
     return lines.join("\n");
   }
@@ -702,6 +715,11 @@ _REPORT_SCRIPT_TEMPLATE = r"""
   ui.notes.addEventListener("input", () => {
     updateStatus("DRAFT");
     reportText = buildPlainText();
+  });
+
+  document.addEventListener("vake:report-status", (event) => {
+    const nextStatus = event.detail && event.detail.status;
+    if (nextStatus) updateStatus(nextStatus);
   });
 
   const observer = new MutationObserver(decorateRows);

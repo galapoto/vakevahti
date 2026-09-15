@@ -3,12 +3,20 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class FundingReportStatus(StrEnum):
     DRAFT = "DRAFT"
     WAITING_APPROVAL = "WAITING_APPROVAL"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class FundingReportApprovalDecision(StrEnum):
+    APPROVE = "APPROVE"
+    RETURN_FOR_EDIT = "RETURN_FOR_EDIT"
+    REJECT = "REJECT"
 
 
 class FundingReportOrigin(StrEnum):
@@ -73,6 +81,51 @@ class FundingReportUpdate(BaseModel):
         return _normalize_recipients(values)
 
 
+class FundingReportDecisionRequest(BaseModel):
+    decision: FundingReportApprovalDecision
+    actor_id: str = Field(min_length=1, max_length=255)
+    actor_display_name: str | None = Field(default=None, max_length=255)
+    comment: str | None = Field(default=None, max_length=4000)
+
+    @field_validator("actor_id")
+    @classmethod
+    def strip_actor_id(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("actor_id must not be blank")
+        return stripped
+
+    @field_validator("actor_display_name", "comment")
+    @classmethod
+    def strip_optional_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    @model_validator(mode="after")
+    def require_decision_reason(self) -> "FundingReportDecisionRequest":
+        if self.decision in {
+            FundingReportApprovalDecision.RETURN_FOR_EDIT,
+            FundingReportApprovalDecision.REJECT,
+        } and not self.comment:
+            raise ValueError("comment is required when returning or rejecting a report")
+        return self
+
+
+class FundingReportApprovalEventResponse(BaseModel):
+    id: UUID
+    report_id: UUID
+    decision: FundingReportApprovalDecision
+    actor_id: str
+    actor_display_name: str | None
+    actor_source: str
+    comment: str | None
+    decided_at: datetime
+    content_hash: str
+    snapshot: dict[str, Any]
+
+
 class FundingReportItemResponse(BaseModel):
     funding_call_id: int
     funding_call_version: int
@@ -88,6 +141,8 @@ class FundingReportResponse(BaseModel):
     status: FundingReportStatus
     origin: FundingReportOrigin
     automation_key: str | None
+    version_number: int = 1
+    supersedes_report_id: UUID | None = None
     notes: str | None
     email_subject: str | None
     email_body: str | None
@@ -95,4 +150,12 @@ class FundingReportResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     submitted_for_approval_at: datetime | None
+    approval_events: list[FundingReportApprovalEventResponse] = Field(default_factory=list)
     items: list[FundingReportItemResponse]
+
+
+class FundingReportListResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    items: list[FundingReportResponse]

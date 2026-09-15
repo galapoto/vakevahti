@@ -1,20 +1,29 @@
+import json
 from datetime import UTC, date, datetime
 from hashlib import sha256
 from uuid import UUID, uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.report_schemas import (
+    FundingReportApprovalDecision,
+    FundingReportApprovalEventResponse,
+    FundingReportDecisionRequest,
     FundingReportDraftCreate,
     FundingReportItemResponse,
+    FundingReportListResponse,
     FundingReportOrigin,
     FundingReportResponse,
     FundingReportStatus,
     FundingReportUpdate,
 )
 from app.db.models import FundingCallRecord, NotificationOutbox
-from app.db.report_models import FundingReport, FundingReportItem
+from app.db.report_models import (
+    FundingReport,
+    FundingReportApprovalEvent,
+    FundingReportItem,
+)
 from app.services.report_composer import ReportFinding, compose_automated_report
 
 
@@ -26,6 +35,10 @@ class FundingReportCallsNotFoundError(LookupError):
     def __init__(self, missing_ids: list[int]) -> None:
         self.missing_ids = missing_ids
         super().__init__(f"Funding calls not found: {missing_ids}")
+
+
+class FundingReportStateConflictError(RuntimeError):
+    pass
 
 
 def _iso_date(value: date | None) -> str | None:
@@ -52,13 +65,88 @@ def _snapshot(record: FundingCallRecord) -> dict[str, object]:
     }
 
 
-async def _response(session: AsyncSession, report: FundingReport) -> FundingReportResponse:
-    item_result = await session.execute(
+async def _report_items(session: AsyncSession, report_id: UUID) -> list[FundingReportItem]:
+    result = await session.execute(
         select(FundingReportItem)
-        .where(FundingReportItem.report_id == report.id)
+        .where(FundingReportItem.report_id == report_id)
         .order_by(FundingReportItem.position.asc())
     )
-    items = list(item_result.scalars())
+    return list(result.scalars())
+
+
+async def _approval_events(
+    session: AsyncSession,
+    report_id: UUID,
+) -> list[FundingReportApprovalEvent]:
+    result = await session.execute(
+        select(FundingReportApprovalEvent)
+        .where(FundingReportApprovalEvent.report_id == report_id)
+        .order_by(
+            FundingReportApprovalEvent.decided_at.asc(),
+            FundingReportApprovalEvent.id.asc(),
+        )
+    )
+    return list(result.scalars())
+
+
+def _approval_snapshot(
+    report: FundingReport,
+    items: list[FundingReportItem],
+) -> dict[str, object]:
+    """Freeze the exact mutable report composition reviewed by a coordinator."""
+
+    return {
+        "report_id": str(report.id),
+        "case_id": str(report.case_id) if report.case_id else None,
+        "included_artifact_ids": list(report.included_artifact_ids),
+        "title": report.title,
+        "origin": report.origin,
+        "automation_key": report.automation_key,
+        "version_number": report.version_number,
+        "supersedes_report_id": (
+            str(report.supersedes_report_id) if report.supersedes_report_id else None
+        ),
+        "notes": report.notes,
+        "email_subject": report.email_subject,
+        "email_body": report.email_body,
+        "recipient_emails": list(report.recipient_emails),
+        "items": [
+            {
+                "funding_call_id": item.funding_call_id,
+                "funding_call_version": item.funding_call_version,
+                "position": item.position,
+                "snapshot": item.snapshot,
+            }
+            for item in items
+        ],
+    }
+
+
+def _approval_content_hash(snapshot: dict[str, object]) -> str:
+    canonical = json.dumps(snapshot, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _approval_event_response(
+    event: FundingReportApprovalEvent,
+) -> FundingReportApprovalEventResponse:
+    return FundingReportApprovalEventResponse(
+        id=event.id,
+        report_id=event.report_id,
+        decision=FundingReportApprovalDecision(event.decision),
+        actor_id=event.actor_id,
+        actor_display_name=event.actor_display_name,
+        actor_source=event.actor_source,
+        comment=event.comment,
+        decided_at=event.decided_at,
+        content_hash=event.content_hash,
+        snapshot=event.snapshot,
+    )
+
+
+async def _response(session: AsyncSession, report: FundingReport) -> FundingReportResponse:
+    items = await _report_items(session, report.id)
+    approval_events = await _approval_events(session, report.id)
     return FundingReportResponse(
         id=report.id,
         case_id=report.case_id,
@@ -67,6 +155,8 @@ async def _response(session: AsyncSession, report: FundingReport) -> FundingRepo
         status=FundingReportStatus(report.status),
         origin=FundingReportOrigin(report.origin),
         automation_key=report.automation_key,
+        version_number=report.version_number,
+        supersedes_report_id=report.supersedes_report_id,
         notes=report.notes,
         email_subject=report.email_subject,
         email_body=report.email_body,
@@ -74,6 +164,7 @@ async def _response(session: AsyncSession, report: FundingReport) -> FundingRepo
         created_at=report.created_at,
         updated_at=report.updated_at,
         submitted_for_approval_at=report.submitted_for_approval_at,
+        approval_events=[_approval_event_response(event) for event in approval_events],
         items=[
             FundingReportItemResponse(
                 funding_call_id=item.funding_call_id,
@@ -112,6 +203,8 @@ async def create_funding_report(
         status=FundingReportStatus.DRAFT.value,
         origin=FundingReportOrigin.MANUAL.value,
         automation_key=None,
+        version_number=1,
+        supersedes_report_id=None,
         notes=draft.notes.strip() if draft.notes and draft.notes.strip() else None,
         email_subject=(
             draft.email_subject.strip()
@@ -223,6 +316,8 @@ async def create_automated_funding_report(
         status=FundingReportStatus.DRAFT.value,
         origin=FundingReportOrigin.AUTOMATED.value,
         automation_key=automation_key,
+        version_number=1,
+        supersedes_report_id=None,
         notes=composition.notes,
         email_subject=composition.email_subject,
         email_body=composition.email_body,
@@ -263,6 +358,51 @@ async def get_funding_report(
     return await _response(session, report)
 
 
+async def list_funding_reports(
+    session: AsyncSession,
+    *,
+    status: FundingReportStatus | None = None,
+    limit: int = 25,
+    offset: int = 0,
+) -> FundingReportListResponse:
+    """Return a bounded coordinator queue without exposing report tables directly."""
+
+    if limit < 1 or limit > 50:
+        raise ValueError("limit must be between 1 and 50")
+    if offset < 0:
+        raise ValueError("offset must be non-negative")
+
+    filters = []
+    if status is not None:
+        filters.append(FundingReport.status == status.value)
+
+    total = int(
+        (
+            await session.scalar(
+                select(func.count(FundingReport.id)).where(*filters)
+            )
+        )
+        or 0
+    )
+    rows = list(
+        (
+            await session.scalars(
+                select(FundingReport)
+                .where(*filters)
+                .order_by(FundingReport.updated_at.desc(), FundingReport.id.asc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    )
+    return FundingReportListResponse(
+        total=total,
+        limit=limit,
+        offset=offset,
+        items=[await _response(session, report) for report in rows],
+    )
+
+
 async def get_latest_funding_report(
     session: AsyncSession,
 ) -> FundingReportResponse | None:
@@ -275,12 +415,75 @@ async def get_latest_funding_report(
     return await _response(session, report)
 
 
+async def revise_approved_funding_report(
+    session: AsyncSession,
+    report_id: UUID,
+) -> FundingReportResponse:
+    """Create one idempotent successor draft without mutating the approved version."""
+
+    result = await session.execute(
+        select(FundingReport)
+        .where(FundingReport.id == report_id)
+        .with_for_update()
+    )
+    report = result.scalar_one_or_none()
+    if report is None:
+        raise FundingReportNotFoundError(str(report_id))
+    if report.status != FundingReportStatus.APPROVED.value:
+        raise FundingReportStateConflictError(
+            "Only an approved report can be revised into a successor version."
+        )
+
+    existing = (
+        await session.scalars(
+            select(FundingReport).where(FundingReport.supersedes_report_id == report.id)
+        )
+    ).one_or_none()
+    if existing is not None:
+        return await _response(session, existing)
+
+    items = await _report_items(session, report.id)
+    now = datetime.now(UTC)
+    successor = FundingReport(
+        id=uuid4(),
+        case_id=report.case_id,
+        included_artifact_ids=list(report.included_artifact_ids),
+        title=report.title,
+        status=FundingReportStatus.DRAFT.value,
+        origin=FundingReportOrigin.MANUAL.value,
+        automation_key=None,
+        version_number=report.version_number + 1,
+        supersedes_report_id=report.id,
+        notes=report.notes,
+        email_subject=report.email_subject,
+        email_body=report.email_body,
+        recipient_emails=list(report.recipient_emails),
+        created_at=now,
+        updated_at=now,
+        submitted_for_approval_at=None,
+    )
+    session.add(successor)
+    for item in items:
+        session.add(
+            FundingReportItem(
+                report_id=successor.id,
+                funding_call_id=item.funding_call_id,
+                funding_call_version=item.funding_call_version,
+                position=item.position,
+                snapshot=dict(item.snapshot),
+            )
+        )
+
+    await session.commit()
+    return await _response(session, successor)
+
+
 async def update_funding_report(
     session: AsyncSession,
     report_id: UUID,
     update: FundingReportUpdate,
 ) -> FundingReportResponse:
-    """Edit a generated/manual report and invalidate prior approval after any edit."""
+    """Edit a report while preserving completed approval evidence."""
 
     result = await session.execute(
         select(FundingReport).where(FundingReport.id == report_id).with_for_update()
@@ -288,6 +491,10 @@ async def update_funding_report(
     report = result.scalar_one_or_none()
     if report is None:
         raise FundingReportNotFoundError(str(report_id))
+    if report.status == FundingReportStatus.APPROVED.value:
+        raise FundingReportStateConflictError(
+            "Approved reports are immutable; create a new report version to make changes."
+        )
 
     fields = update.model_fields_set
     if "title" in fields and update.title is not None:
@@ -311,7 +518,10 @@ async def update_funding_report(
 
     if fields:
         report.updated_at = datetime.now(UTC)
-        if report.status == FundingReportStatus.WAITING_APPROVAL.value:
+        if report.status in {
+            FundingReportStatus.WAITING_APPROVAL.value,
+            FundingReportStatus.REJECTED.value,
+        }:
             report.status = FundingReportStatus.DRAFT.value
             report.submitted_for_approval_at = None
         await session.commit()
@@ -334,11 +544,79 @@ async def submit_funding_report_for_approval(
     if report is None:
         raise FundingReportNotFoundError(str(report_id))
 
-    if report.status == FundingReportStatus.DRAFT.value:
-        now = datetime.now(UTC)
-        report.status = FundingReportStatus.WAITING_APPROVAL.value
-        report.updated_at = now
-        report.submitted_for_approval_at = now
-        await session.commit()
+    if report.status == FundingReportStatus.WAITING_APPROVAL.value:
+        return await _response(session, report)
+    if report.status != FundingReportStatus.DRAFT.value:
+        raise FundingReportStateConflictError(
+            f"Report in status {report.status} cannot be submitted for approval."
+        )
 
+    now = datetime.now(UTC)
+    report.status = FundingReportStatus.WAITING_APPROVAL.value
+    report.updated_at = now
+    report.submitted_for_approval_at = now
+    await session.commit()
+    return await _response(session, report)
+
+
+async def decide_funding_report(
+    session: AsyncSession,
+    report_id: UUID,
+    decision: FundingReportDecisionRequest,
+    *,
+    actor_source: str = "CLIENT_ASSERTED",
+) -> FundingReportResponse:
+    """Record one append-only coordinator decision against an immutable composition snapshot."""
+
+    result = await session.execute(
+        select(FundingReport)
+        .where(FundingReport.id == report_id)
+        .with_for_update()
+    )
+    report = result.scalar_one_or_none()
+    if report is None:
+        raise FundingReportNotFoundError(str(report_id))
+
+    items = await _report_items(session, report.id)
+    snapshot = _approval_snapshot(report, items)
+    content_hash = _approval_content_hash(snapshot)
+    events = await _approval_events(session, report.id)
+    latest = events[-1] if events else None
+
+    if report.status != FundingReportStatus.WAITING_APPROVAL.value:
+        if (
+            latest is not None
+            and latest.decision == decision.decision.value
+            and latest.content_hash == content_hash
+        ):
+            return await _response(session, report)
+        raise FundingReportStateConflictError(
+            f"Report in status {report.status} is not waiting for approval."
+        )
+
+    now = datetime.now(UTC)
+    event = FundingReportApprovalEvent(
+        id=uuid4(),
+        report_id=report.id,
+        decision=decision.decision.value,
+        actor_id=decision.actor_id,
+        actor_display_name=decision.actor_display_name,
+        actor_source=actor_source,
+        comment=decision.comment,
+        decided_at=now,
+        content_hash=content_hash,
+        snapshot=snapshot,
+    )
+    session.add(event)
+
+    if decision.decision is FundingReportApprovalDecision.APPROVE:
+        report.status = FundingReportStatus.APPROVED.value
+    elif decision.decision is FundingReportApprovalDecision.RETURN_FOR_EDIT:
+        report.status = FundingReportStatus.DRAFT.value
+        report.submitted_for_approval_at = None
+    else:
+        report.status = FundingReportStatus.REJECTED.value
+    report.updated_at = now
+
+    await session.commit()
     return await _response(session, report)

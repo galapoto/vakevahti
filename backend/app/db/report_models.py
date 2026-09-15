@@ -31,6 +31,10 @@ class FundingReport(Base):
             "automation_key",
             name="uq_funding_reports_automation_key",
         ),
+        UniqueConstraint(
+            "supersedes_report_id",
+            name="uq_funding_reports_supersedes_report_id",
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
@@ -48,6 +52,12 @@ class FundingReport(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     origin: Mapped[str] = mapped_column(String(32), nullable=False, default="MANUAL")
     automation_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    supersedes_report_id: Mapped[UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("funding_reports.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     email_subject: Mapped[str | None] = mapped_column(Text, nullable=True)
     email_body: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -62,6 +72,34 @@ class FundingReport(Base):
         DateTime(timezone=True),
         nullable=True,
     )
+
+
+class FundingReportApprovalEvent(Base):
+    """Append-only coordinator decision evidence for one report composition."""
+
+    __tablename__ = "funding_report_approval_events"
+    __table_args__ = (
+        Index(
+            "ix_funding_report_approval_events_report_decided",
+            "report_id",
+            "decided_at",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    report_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("funding_reports.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    decision: Mapped[str] = mapped_column(String(32), nullable=False)
+    actor_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    actor_display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    actor_source: Mapped[str] = mapped_column(String(32), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
 
 class FundingReportItem(Base):

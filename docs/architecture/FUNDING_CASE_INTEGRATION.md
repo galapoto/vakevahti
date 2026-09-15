@@ -51,6 +51,21 @@ The same content/version may be registered repeatedly and may be promoted from `
 to `APPROVED`. Different content using an existing version is rejected; the producer must
 publish a new version.
 
+## Funding report approval and version lineage
+
+Funding reports use a separate approval state machine from cross-app artifact status. A report
+submitted for coordinator review becomes `WAITING_APPROVAL`; the coordinator may approve it,
+return it for editing, or reject it. Every decision is retained as an append-only approval event
+with the exact reviewed report snapshot and a canonical SHA-256 content hash.
+
+An `APPROVED` funding report is immutable. Continued work creates a successor report version
+with `supersedes_report_id` pointing to the approved version. Consumers should follow this
+lineage instead of updating an approved row in place.
+
+The current standalone actor field is client-asserted staging context. VakeTomatti must later
+provide authenticated actor identity and authorization; callers must never be allowed to turn a
+self-supplied identifier into trusted approval evidence.
+
 ## Case email package
 
 `GET /api/cases/{case_id}/email-package` produces the default editable email subject and

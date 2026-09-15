@@ -225,7 +225,31 @@ VakeVahti remains standalone for now. Its funding business logic must not depend
 - audit/error content is bounded
 - managed-workstation security policy is not bypassed
 
-## 20. How to use this document
+## 20. Approval is a business event, not a UI label
+
+### Lesson
+
+A coordinator approval is stored as an append-only event tied to the exact report composition that was reviewed. The report snapshot is serialized canonically and hashed with SHA-256. Approving locks that version; later work creates a successor version instead of changing the approved row.
+
+This combines several transferable concepts: state machines, append-only audit data, content hashing, optimistic user workflows backed by database invariants, idempotent commands, immutable versions and API-owned approval queues.
+
+### Interview: Why is `status = APPROVED` not enough?
+
+> A mutable status only tells me what the row says now. It does not prove what exact content the coordinator reviewed or preserve return/reject history. I store an immutable decision event with the actor context, timestamp, comment, canonical content hash and full reviewed snapshot. The approved report is then immutable, and later edits happen in a successor version.
+
+### Interview: Why store both the snapshot and the hash?
+
+> The snapshot is human- and machine-inspectable evidence of what was reviewed. The hash gives a compact deterministic fingerprint that makes composition changes easy to detect and compare. The hash is not a signature; identity trust still comes from authentication and authorization.
+
+### Interview: How do you prevent duplicate successor versions if the user retries?
+
+> The service locks the approved parent, checks for an existing successor and returns it if present. A database uniqueness constraint on `supersedes_report_id` protects the invariant as a final backstop. That makes the revision command idempotent instead of creating forks on retries.
+
+### Security takeaway
+
+The current `CLIENT_ASSERTED` actor is deliberately labelled untrusted. It lets the domain workflow be tested without pretending that typed text is organization identity. The next security slice should derive actor identity and approval permission from the approved SSO boundary.
+
+## 21. How to use this document
 
 After each meaningful implementation slice:
 
