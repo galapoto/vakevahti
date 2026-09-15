@@ -179,7 +179,7 @@ async def source_health(settings: SettingsDependency) -> SourceHealthResponse:
                 baseline_completed_at=_OBSERVED_AT,
                 last_successful_scan_at=_OBSERVED_AT,
                 latest_scan_id=UUID(f"00000000-0000-0000-0000-{index:012d}"),
-                latest_scan_status="SUCCEEDED",
+                latest_scan_status="succeeded",
                 latest_scan_trigger="PREVIEW_FIXTURE",
                 latest_scan_started_at=_OBSERVED_AT,
                 latest_scan_completed_at=_OBSERVED_AT,

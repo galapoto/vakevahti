@@ -28,7 +28,8 @@ def test_dashboard_uses_restored_vake_palette_logo_and_theme_toggle() -> None:
     assert "#74b72b" in html
     assert "#e6007e" in html
     assert "#ea5297" in html
-    assert "data:image/svg+xml;base64" in html
+    assert "data:image/png;base64" in html
+    assert "Vantaan ja Keravan hyvinvointialue" in response.text
 
 
 def test_preview_badge_survives_theme_and_certainty_injection() -> None:

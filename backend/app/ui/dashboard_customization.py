@@ -34,13 +34,9 @@ _STYLE_OVERRIDES = r"""
 
   .logo {
     border-radius: 15px;
-    background: #312783;
-    box-shadow: 0 10px 24px rgba(49, 39, 131, .20);
+    background: var(--surface);
+    box-shadow: 0 8px 20px rgba(49, 39, 131, .10);
   }
-
-  .logo svg > rect { fill: #312783 !important; }
-  .logo svg g { filter: none !important; }
-  .logo svg g rect:last-child { fill: #E6007E; }
 
   .system-chip {
     border-color: #d8d5ea;
@@ -209,9 +205,9 @@ _KPI_DETAIL_OLD = '<span class="kpi-detail">Kaikkien seurattujen lähteiden nyky
 _KPI_DETAIL_NEW = '<span class="kpi-detail">Vain vahvistetut relevantit haut; tarkistettavat näkyvät listassa erikseen</span>'
 
 _CALLS_HEADING_OLD = '<h2 id="calls-heading">VakeHyvälle tunnistetut rahoitusmahdollisuudet</h2>'
-_CALLS_HEADING_NEW = '<h2 id="calls-heading">Varmistetut ja tarkistettavat rahoitusmahdollisuudet</h2>'
+_CALLS_HEADING_NEW = '<h2 id="calls-heading">Miksi nämä rahoitushaut sopivat VakeHyvälle</h2>'
 _CALLS_COPY_OLD = '<p>Jokaisen haun alla näkyy suoraan tallennettu perustelu sille, miksi haku on arvioitu VakeHyvälle relevantiksi.</p>'
-_CALLS_COPY_NEW = '<p>Jokaisen haun alla näkyy tallennettu perustelu sekä selkeä tieto siitä, onko sopivuus varmistettu vai vaatiiko haku tarkistuksen.</p>'
+_CALLS_COPY_NEW = '<p>Jokainen kortti nostaa perustelun näkyvästi esiin. Tarkistettavat haut erotetaan vahvistetuista ennen valmistelun jatkamista.</p>'
 _LOADING_OLD = '<div class="loading-state">Ladataan VakeHyvälle sopivia rahoitushakuja…</div>'
 _LOADING_NEW = '<div class="loading-state">Ladataan varmistettuja ja tarkistettavia rahoitushakuja…</div>'
 _EMPTY_OLD = '        elements.opportunityList.append(text("div", "Valitussa viimeisimmässä onnistuneessa tilannekuvassa ei ole nykyisiä VakeHyvälle sopivia rahoitushakuja.", "empty-state"));'
@@ -261,7 +257,7 @@ _ROW_DATA_NEW = '''        row.dataset.source = call.source_code;
         row.dataset.relevance = String(call.relevance_status || "").trim().toUpperCase();'''
 
 _WHY_LABEL_OLD = '        whyLabel.textContent = "Miksi VakeHyvälle: ";'
-_WHY_LABEL_NEW = '        whyLabel.textContent = needsReview(call.relevance_status) ? "Miksi tarkistettava: " : "Miksi VakeHyvälle: ";'
+_WHY_LABEL_NEW = '        whyLabel.textContent = needsReview(call.relevance_status) ? "Miksi tämä vaatii tarkistuksen" : "Miksi tämä sopii VakeHyvälle";'
 
 
 def _replace_once(html: str, old: str, new: str, *, label: str) -> str:

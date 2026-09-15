@@ -2,7 +2,12 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from app.ui.brand import VAKE_COLORS, VAKE_FONT_FAMILY
+from app.ui.brand import (
+    VAKE_COLORS,
+    VAKE_FONT_FAMILY,
+    VAKE_OFFICIAL_HEART_DATA_URI,
+    VAKE_OFFICIAL_LOGO_SOURCE_URL,
+)
 
 
 def test_dashboard_uses_official_vake_poppins_typography() -> None:
@@ -37,3 +42,8 @@ def test_brand_tokens_are_reusable_by_report_and_email_renderers() -> None:
     assert "Poppins" in VAKE_FONT_FAMILY
     assert VAKE_COLORS["purple"] == "#312783"
     assert VAKE_COLORS["fuchsia"] == "#E6007E"
+
+
+def test_official_vake_mark_is_embedded_from_public_media_bank_asset() -> None:
+    assert VAKE_OFFICIAL_LOGO_SOURCE_URL.startswith("https://www.sttinfo.fi/data/images/")
+    assert VAKE_OFFICIAL_HEART_DATA_URI.startswith("data:image/png;base64,")

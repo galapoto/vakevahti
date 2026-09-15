@@ -20,22 +20,22 @@ DASHBOARD_HTML = r"""<!doctype html>
       --text: #16202a;
       --muted: #667085;
       --border: #dfe5ea;
-      --brand: #e20b17;
-      --brand-strong: #b70710;
-      --brand-soft: #fff0f1;
-      --brand-faint: #fff8f8;
-      --good: #16805a;
-      --good-soft: #eaf8f2;
-      --warning: #b26200;
-      --warning-soft: #fff6e3;
-      --danger: #b42318;
-      --danger-soft: #fff0ee;
-      --blue: #2563eb;
-      --blue-soft: #eef5ff;
-      --purple: #7c3aed;
-      --purple-soft: #f5f1ff;
-      --amber: #c15f08;
-      --amber-soft: #fff7e8;
+      --brand: #312783;
+      --brand-strong: #312783;
+      --brand-soft: #eeecfb;
+      --brand-faint: #f8f7fd;
+      --good: #00983a;
+      --good-soft: #eaf7ee;
+      --warning: #b59525;
+      --warning-soft: #fbf7e9;
+      --danger: #d90066;
+      --danger-soft: #fff0f7;
+      --blue: #28738a;
+      --blue-soft: #edf7fa;
+      --purple: #e6007e;
+      --purple-soft: #fdebf5;
+      --amber: #00983a;
+      --amber-soft: #eaf7ee;
       --shadow-xs: 0 2px 8px rgba(16, 24, 40, .05);
       --shadow: 0 10px 28px rgba(16, 24, 40, .07);
       --shadow-hover: 0 18px 36px rgba(16, 24, 40, .12);
@@ -53,8 +53,8 @@ DASHBOARD_HTML = r"""<!doctype html>
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at 14% 0%, rgba(226, 11, 23, .055), transparent 28rem),
-        radial-gradient(circle at 92% 8%, rgba(37, 99, 235, .045), transparent 26rem),
+        radial-gradient(circle at 14% 0%, rgba(49, 39, 131, .055), transparent 28rem),
+        radial-gradient(circle at 92% 8%, rgba(118, 203, 243, .075), transparent 26rem),
         var(--bg);
     }
 
@@ -88,10 +88,10 @@ DASHBOARD_HTML = r"""<!doctype html>
       flex: 0 0 auto;
       overflow: hidden;
       border-radius: 16px;
-      box-shadow: 0 10px 24px rgba(183, 7, 16, .24);
+      box-shadow: 0 10px 24px rgba(49, 39, 131, .18);
     }
 
-    .logo svg { display: block; width: 100%; height: 100%; }
+    .logo-fallback { display: grid; place-items: center; width: 100%; height: 100%; color: var(--brand); font-size: 11px; font-weight: 850; }
     .brand strong { display: block; font-size: 18px; letter-spacing: -.02em; }
     .brand span { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
 
@@ -100,7 +100,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       align-items: center;
       gap: 7px;
       padding: 8px 11px;
-      border: 1px solid #f0cfd2;
+      border: 1px solid #d8d5ea;
       border-radius: 999px;
       background: var(--brand-faint);
       color: var(--brand-strong);
@@ -115,7 +115,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       height: 7px;
       border-radius: 50%;
       background: var(--brand);
-      box-shadow: 0 0 0 4px rgba(226, 11, 23, .08);
+      box-shadow: 0 0 0 4px rgba(230, 0, 126, .08);
     }
 
     .hero {
@@ -143,7 +143,7 @@ DASHBOARD_HTML = r"""<!doctype html>
       right: -80px;
       top: -120px;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(226, 11, 23, .12), rgba(226, 11, 23, 0) 68%);
+      background: radial-gradient(circle, rgba(118, 203, 243, .16), rgba(118, 203, 243, 0) 68%);
       pointer-events: none;
     }
 
@@ -182,15 +182,15 @@ DASHBOARD_HTML = r"""<!doctype html>
       border-radius: 11px;
       padding: 10px 15px;
       color: #fff;
-      background: linear-gradient(180deg, #ef1b26, var(--brand));
+      background: linear-gradient(180deg, #494091, var(--brand));
       font-weight: 800;
       cursor: pointer;
-      box-shadow: 0 8px 18px rgba(226, 11, 23, .18);
+      box-shadow: 0 8px 18px rgba(49, 39, 131, .18);
       transition: transform .16s ease, box-shadow .16s ease;
     }
 
-    .refresh-button:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(226, 11, 23, .23); }
-    .refresh-button:focus-visible { outline: 3px solid rgba(226, 11, 23, .23); outline-offset: 3px; }
+    .refresh-button:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(49, 39, 131, .23); }
+    .refresh-button:focus-visible { outline: 3px solid rgba(49, 39, 131, .23); outline-offset: 3px; }
     .refresh-button:disabled { opacity: .55; cursor: wait; transform: none; }
 
     .status-banner {
@@ -330,7 +330,7 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     .source-home-link { min-height: 34px; padding: 7px 10px; color: var(--source-color); }
     .source-home-link:hover, .row-source-link:hover, .source-link:hover { transform: translateY(-1px); box-shadow: var(--shadow-xs); }
-    .source-home-link:focus-visible, .row-source-link:focus-visible, .source-link:focus-visible { outline: 3px solid rgba(226, 11, 23, .18); outline-offset: 2px; }
+    .source-home-link:focus-visible, .row-source-link:focus-visible, .source-link:focus-visible { outline: 3px solid rgba(49, 39, 131, .18); outline-offset: 2px; }
 
     .toolbar {
       display: flex;
@@ -347,7 +347,7 @@ DASHBOARD_HTML = r"""<!doctype html>
     .toolbar-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .toolbar label { color: var(--muted); font-size: 11px; font-weight: 800; }
     .source-select { min-width: 190px; min-height: 40px; padding: 8px 32px 8px 10px; border: 1px solid #cbd5dc; border-radius: 9px; color: var(--text); background: white; }
-    .source-select:focus-visible { outline: 3px solid rgba(226, 11, 23, .16); outline-offset: 2px; }
+    .source-select:focus-visible { outline: 3px solid rgba(49, 39, 131, .16); outline-offset: 2px; }
     .list-count { color: var(--muted); font-size: 11px; font-weight: 700; }
 
     .opportunity-panel { margin-top: 12px; }
@@ -395,16 +395,23 @@ DASHBOARD_HTML = r"""<!doctype html>
 
     .why-line {
       display: -webkit-box;
-      margin-top: 5px;
+      margin-top: 7px;
       overflow: hidden;
-      color: #667085;
-      font-size: 10px;
-      line-height: 1.45;
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.5;
       -webkit-box-orient: vertical;
       -webkit-line-clamp: 2;
     }
 
-    .why-line strong { color: var(--brand-strong); font-weight: 850; }
+    .why-line strong {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--brand-strong);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: -.01em;
+    }
     .deadline-block { text-align: right; }
     .deadline-label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
     .deadline-value { display: inline-block; padding: 5px 8px; border-radius: 8px; color: #344054; background: #f4f6f8; font-size: 10px; font-weight: 800; }
@@ -424,9 +431,9 @@ DASHBOARD_HTML = r"""<!doctype html>
     }
 
     .details-loading { padding: 17px 0 0; color: var(--muted); font-size: 11px; }
-    .fit-box { margin-top: 16px; padding: 14px 15px; border: 1px solid #f0cfd2; border-radius: 12px; background: linear-gradient(135deg, #fff, var(--brand-faint)); }
+    .fit-box { margin-top: 16px; padding: 14px 15px; border: 1px solid #d8d5ea; border-radius: 12px; background: linear-gradient(135deg, #fff, var(--brand-faint)); }
     .fit-box .detail-label { color: var(--brand-strong); }
-    .fit-box .detail-value { color: #3a2426; font-size: 12px; font-weight: 650; }
+    .fit-box .detail-value { color: #293537; font-size: 12px; font-weight: 650; }
 
     .detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; padding-top: 12px; }
     .detail-box { min-width: 0; padding: 12px; border: 1px solid #e3e8eb; border-radius: 10px; background: #fff; }
@@ -477,33 +484,8 @@ DASHBOARD_HTML = r"""<!doctype html>
   <main class="shell">
     <header class="topbar">
       <div class="brand">
-        <div class="logo" aria-label="VakeHyvä">
-          <svg viewBox="0 0 100 90" role="img" aria-label="VakeHyvän kuutiosydän">
-            <defs>
-              <linearGradient id="vake-red" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#ff2631"/>
-                <stop offset="1" stop-color="#d8000c"/>
-              </linearGradient>
-              <filter id="cube-shadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#8c0008" flood-opacity=".22"/>
-              </filter>
-            </defs>
-            <rect width="100" height="90" rx="18" fill="url(#vake-red)"/>
-            <g fill="#fff" filter="url(#cube-shadow)">
-              <rect x="28" y="10" width="10" height="10" rx="1.5"/><rect x="41" y="10" width="10" height="10" rx="1.5"/>
-              <rect x="62" y="10" width="10" height="10" rx="1.5"/><rect x="75" y="10" width="10" height="10" rx="1.5"/>
-              <rect x="15" y="23" width="10" height="10" rx="1.5"/><rect x="28" y="23" width="10" height="10" rx="1.5"/>
-              <rect x="41" y="23" width="10" height="10" rx="1.5"/><rect x="54" y="23" width="10" height="10" rx="1.5"/>
-              <rect x="67" y="23" width="10" height="10" rx="1.5"/><rect x="80" y="23" width="10" height="10" rx="1.5"/>
-              <rect x="15" y="36" width="10" height="10" rx="1.5"/><rect x="28" y="36" width="10" height="10" rx="1.5"/>
-              <rect x="41" y="36" width="10" height="10" rx="1.5"/><rect x="54" y="36" width="10" height="10" rx="1.5"/>
-              <rect x="67" y="36" width="10" height="10" rx="1.5"/><rect x="80" y="36" width="10" height="10" rx="1.5"/>
-              <rect x="28" y="49" width="10" height="10" rx="1.5"/><rect x="41" y="49" width="10" height="10" rx="1.5"/>
-              <rect x="54" y="49" width="10" height="10" rx="1.5"/><rect x="67" y="49" width="10" height="10" rx="1.5"/>
-              <rect x="41" y="62" width="10" height="10" rx="1.5"/><rect x="54" y="62" width="10" height="10" rx="1.5"/>
-              <rect x="54" y="75" width="10" height="10" rx="1.5"/>
-            </g>
-          </svg>
+        <div class="logo" role="img" aria-label="Vantaan ja Keravan hyvinvointialue">
+          <span class="logo-fallback" aria-hidden="true">VAKE</span>
         </div>
         <div>
           <strong>VakeVahti</strong>
