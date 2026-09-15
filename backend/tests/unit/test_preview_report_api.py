@@ -71,11 +71,7 @@ def test_preview_report_supports_audited_coordinator_decisions() -> None:
 
     approved = client.post(
         f"/api/reports/{report_id}/decision",
-        json={
-            "decision": "APPROVE",
-            "actor_id": "preview-coordinator",
-            "actor_display_name": "Preview Coordinator",
-        },
+        json={"decision": "APPROVE"},
     )
 
     assert approved.status_code == 200
@@ -88,6 +84,25 @@ def test_preview_report_supports_audited_coordinator_decisions() -> None:
     assert client.patch(
         f"/api/reports/{report_id}", json={"notes": "no mutation"}
     ).status_code == 409
+
+
+
+def test_preview_report_rejects_client_supplied_approver_identity() -> None:
+    client = _client()
+    calls = client.get("/api/funding-calls").json()["items"]
+    created = client.post(
+        "/api/reports",
+        json={"funding_call_ids": [calls[0]["id"]]},
+    )
+    report_id = created.json()["id"]
+    client.post(f"/api/reports/{report_id}/submit")
+
+    response = client.post(
+        f"/api/reports/{report_id}/decision",
+        json={"decision": "APPROVE", "actor_id": "spoofed-user"},
+    )
+
+    assert response.status_code == 422
 
 
 def test_preview_report_queue_filters_waiting_approval() -> None:
@@ -117,7 +132,7 @@ def test_preview_approved_report_revision_preserves_original_version() -> None:
     client.post(f"/api/reports/{report_id}/submit")
     approved = client.post(
         f"/api/reports/{report_id}/decision",
-        json={"decision": "APPROVE", "actor_id": "preview-versioner"},
+        json={"decision": "APPROVE"},
     )
     assert approved.json()["version_number"] == 1
 

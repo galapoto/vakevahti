@@ -7,7 +7,7 @@ Status: Accepted for the standalone/staging Funding module
 
 VakeVahti can compose and persist funding reports and place a draft into a coordinator approval queue. A public-sector workplace approval cannot be represented safely by changing one mutable status field. The system must be able to answer what exact content was reviewed, who asserted the decision, when it happened, why a report was returned or rejected, and whether later edits changed the approved material.
 
-The future VakeTomatti platform will provide trusted organization identity and authorization. That identity boundary does not exist yet in the standalone Funding module, so this slice must not pretend that a typed actor identifier is authenticated.
+The future VakeTomatti platform provides the organization login boundary. Approval storage therefore must not depend on a browser-typed actor identifier. The follow-up identity slice now supplies actor context through the Funding authorization boundary; preview/development identities remain explicitly labelled non-production, while production accepts only the signed VakeTomatti gateway mode.
 
 ## Decision
 
@@ -27,7 +27,7 @@ Editing an approved report is prohibited. Continuing work creates one explicit s
 
 The approval queue is exposed through the Funding API rather than direct table access. This keeps VakeTomatti and future shells dependent on a published contract rather than Funding storage internals.
 
-Until organization SSO is connected, production API decisions record `actor_source=CLIENT_ASSERTED`. This is useful staging/audit context but **is not authentication or authorization evidence**. Preview fixtures use `PREVIEW_FIXTURE`.
+Approval decision bodies no longer accept actor identity. The service records the server-resolved actor source: `PREVIEW_FIXTURE`, `DEVELOPMENT_STATIC`, or `VAKETOMATTI_GATEWAY`. Production settings reject the development mode. The gateway identity is meaningful only when the approved upstream SSO/gateway, TLS/network restrictions and secret-management controls are deployed as documented in ADR 0007.
 
 ## Alternatives considered
 
@@ -54,5 +54,5 @@ Rejected. The domain state machine, immutable snapshots, hashing, API contracts 
 - Approved versions remain inspectable after later revisions.
 - Report lineage is explicit and queryable.
 - Database constraints protect against accidental successor forks.
-- The current actor assertion must not be treated as a security boundary; SSO/authorization remains a required next slice.
+- Browser-supplied actor identity is not accepted. The remaining production task is connecting the signed gateway to the approved organization SSO/OIDC and role source.
 - Existing email-delivery paths are not automatically approval-gated by this ADR. Transport authorization and the exact rule for which approved object may be sent must be completed before production enablement.

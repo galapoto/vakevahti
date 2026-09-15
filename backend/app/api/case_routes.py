@@ -14,6 +14,7 @@ from app.api.case_schemas import (
 )
 from app.api.dependencies import get_db_session
 from app.config import Settings
+from app.security.identity import ActorContext, FundingPermission, require_permission
 from app.services.case_automation import refresh_case_automation
 from app.services.funding_cases import (
     FundingCaseArtifactConflictError,
@@ -28,6 +29,14 @@ from app.services.funding_cases import (
 
 router = APIRouter(prefix="/api/cases", tags=["funding-cases"])
 SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
+ReadActor = Annotated[
+    ActorContext,
+    Depends(require_permission(FundingPermission.OPPORTUNITIES_READ)),
+]
+EditActor = Annotated[
+    ActorContext,
+    Depends(require_permission(FundingPermission.APPLICATIONS_EDIT)),
+]
 
 
 def _require_case_writes(request: Request) -> None:
@@ -37,12 +46,19 @@ def _require_case_writes(request: Request) -> None:
 
 
 @router.get("", response_model=list[FundingCaseResponse])
-async def cases(session: SessionDependency) -> list[FundingCaseResponse]:
+async def cases(
+    session: SessionDependency,
+    _actor: ReadActor,
+) -> list[FundingCaseResponse]:
     return await list_funding_cases(session)
 
 
 @router.get("/{case_id}", response_model=FundingCaseResponse)
-async def case_detail(case_id: UUID, session: SessionDependency) -> FundingCaseResponse:
+async def case_detail(
+    case_id: UUID,
+    session: SessionDependency,
+    _actor: ReadActor,
+) -> FundingCaseResponse:
     try:
         return await get_funding_case(session, case_id)
     except FundingCaseNotFoundError as exc:
@@ -53,6 +69,7 @@ async def case_detail(case_id: UUID, session: SessionDependency) -> FundingCaseR
 async def email_package(
     case_id: UUID,
     session: SessionDependency,
+    _actor: ReadActor,
 ) -> FundingCaseEmailPackage:
     try:
         return await get_case_email_package(session, case_id)
@@ -70,6 +87,7 @@ async def attach_artifact(
     artifact: FundingCaseArtifactCreate,
     request: Request,
     session: SessionDependency,
+    _actor: EditActor,
 ) -> FundingCaseArtifactResponse:
     _require_case_writes(request)
     try:
@@ -92,6 +110,7 @@ async def send_case_email(
     payload: FundingCaseEmailSendRequest,
     request: Request,
     session: SessionDependency,
+    _actor: EditActor,
 ) -> FundingCaseEmailQueueResponse:
     """Queue a case email to oneself or any validated recipient list."""
 

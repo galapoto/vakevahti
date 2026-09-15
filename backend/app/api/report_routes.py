@@ -13,6 +13,7 @@ from app.api.report_schemas import (
     FundingReportStatus,
     FundingReportUpdate,
 )
+from app.security.identity import ActorContext, FundingPermission, require_permission
 from app.services.funding_reports import (
     FundingReportCallsNotFoundError,
     FundingReportNotFoundError,
@@ -30,6 +31,18 @@ from app.services.funding_reports import (
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 SessionDependency = Annotated[AsyncSession, Depends(get_db_session)]
 ReportStatusQuery = Annotated[FundingReportStatus | None, Query(alias="status")]
+ReadActor = Annotated[
+    ActorContext,
+    Depends(require_permission(FundingPermission.OPPORTUNITIES_READ)),
+]
+EditActor = Annotated[
+    ActorContext,
+    Depends(require_permission(FundingPermission.APPLICATIONS_EDIT)),
+]
+ApproveActor = Annotated[
+    ActorContext,
+    Depends(require_permission(FundingPermission.APPLICATIONS_APPROVE)),
+]
 
 
 @router.post(
@@ -40,6 +53,7 @@ ReportStatusQuery = Annotated[FundingReportStatus | None, Query(alias="status")]
 async def create_report(
     draft: FundingReportDraftCreate,
     session: SessionDependency,
+    _actor: EditActor,
 ) -> FundingReportResponse:
     try:
         return await create_funding_report(session, draft)
@@ -53,6 +67,7 @@ async def create_report(
 @router.get("", response_model=FundingReportListResponse)
 async def report_queue(
     session: SessionDependency,
+    _actor: ApproveActor,
     status_filter: ReportStatusQuery = None,
     limit: int = 25,
     offset: int = 0,
@@ -72,6 +87,7 @@ async def report_queue(
 async def latest_report(
     session: SessionDependency,
     response: Response,
+    _actor: ReadActor,
 ) -> FundingReportResponse | None:
     report = await get_latest_funding_report(session)
     if report is None:
@@ -83,6 +99,7 @@ async def latest_report(
 async def report_detail(
     report_id: UUID,
     session: SessionDependency,
+    _actor: ReadActor,
 ) -> FundingReportResponse:
     try:
         return await get_funding_report(session, report_id)
@@ -95,6 +112,7 @@ async def edit_report(
     report_id: UUID,
     update: FundingReportUpdate,
     session: SessionDependency,
+    _actor: EditActor,
 ) -> FundingReportResponse:
     try:
         return await update_funding_report(session, report_id, update)
@@ -108,6 +126,7 @@ async def edit_report(
 async def submit_report(
     report_id: UUID,
     session: SessionDependency,
+    _actor: EditActor,
 ) -> FundingReportResponse:
     try:
         return await submit_funding_report_for_approval(session, report_id)
@@ -121,6 +140,7 @@ async def submit_report(
 async def revise_report(
     report_id: UUID,
     session: SessionDependency,
+    _actor: EditActor,
 ) -> FundingReportResponse:
     """Create or return the immutable successor draft for an approved report."""
 
@@ -137,11 +157,19 @@ async def decide_report(
     report_id: UUID,
     decision: FundingReportDecisionRequest,
     session: SessionDependency,
+    actor: ApproveActor,
 ) -> FundingReportResponse:
     """Record a staging actor assertion and immutable coordinator decision event."""
 
     try:
-        return await decide_funding_report(session, report_id, decision)
+        return await decide_funding_report(
+            session,
+            report_id,
+            decision,
+            actor_id=actor.actor_id,
+            actor_display_name=actor.display_name,
+            actor_source=actor.source,
+        )
     except FundingReportNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Funding report not found.") from exc
     except FundingReportStateConflictError as exc:

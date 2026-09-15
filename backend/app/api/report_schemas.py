@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class FundingReportStatus(StrEnum):
@@ -82,20 +82,12 @@ class FundingReportUpdate(BaseModel):
 
 
 class FundingReportDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     decision: FundingReportApprovalDecision
-    actor_id: str = Field(min_length=1, max_length=255)
-    actor_display_name: str | None = Field(default=None, max_length=255)
     comment: str | None = Field(default=None, max_length=4000)
 
-    @field_validator("actor_id")
-    @classmethod
-    def strip_actor_id(cls, value: str) -> str:
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("actor_id must not be blank")
-        return stripped
-
-    @field_validator("actor_display_name", "comment")
+    @field_validator("comment")
     @classmethod
     def strip_optional_text(cls, value: str | None) -> str | None:
         if value is None:

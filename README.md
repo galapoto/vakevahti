@@ -143,7 +143,7 @@ This keeps VakeVahti capable of growing from funding monitoring into a much larg
 
 The earlier source-ingestion/read-API/outbox priorities are complete. The next slices should move the system from a strong funding-monitoring workflow into an approved employee production workflow:
 
-1. **Add approved organization identity and authorization.** Replace client-asserted approval actors and environment-variable write gates with the VakeTomatti/organization SSO boundary plus permissions such as read, review, edit, approve and administer. Authentication must not imply universal authorization.
+1. **Connect the signed VakeTomatti identity gateway to approved organization SSO/OIDC and role mapping.** The Funding backend now verifies request-bound gateway signatures and enforces explicit domain permissions; deployment still needs the approved upstream login/role source, gateway secret management and network boundary.
 2. **Connect approval policy to workplace delivery infrastructure.** Keep the existing outbox/retry contracts, but require the appropriate approved report/artifact version before production email/notification delivery and load secrets only through approved deployment configuration.
 3. **Integrate real cross-app artifacts.** Replace starter-only Prosessikuvaus/Raportointi content with versioned artifacts produced by those modules; add authorized file/deep-link handling without copying confidential documents into unsafe locations.
 4. **Expand opportunity -> application -> project lifecycle.** Add application ownership, decision/status history, deadlines and the published Project-service handoff when a funded application becomes a project.

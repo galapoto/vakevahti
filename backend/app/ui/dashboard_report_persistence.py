@@ -153,17 +153,9 @@ _APPROVAL_PANEL = r"""
         <strong id="report-approval-heading">Koordinaattorin päätös</strong>
         <span>Hyväksyntä tallennetaan muuttumattomana tapahtumana sekä hyväksytyn raporttisisällön tiivisteenä.</span>
       </div>
-      <span>Auditointitunniste on kehitysvaiheen syöte ja korvataan organisaation SSO-identiteetillä.</span>
+      <span id="report-approval-actor-summary">Päätöksen tekijä vahvistetaan palvelimen identiteettirajasta.</span>
     </div>
     <div class="report-approval-fields">
-      <label>
-        Koordinaattorin tunniste
-        <input id="report-approval-actor-id" type="text" maxlength="255" autocomplete="off" placeholder="esim. käyttäjätunnus">
-      </label>
-      <label>
-        Nimi (valinnainen)
-        <input id="report-approval-actor-name" type="text" maxlength="255" autocomplete="off" placeholder="Koordinaattorin nimi">
-      </label>
       <label>
         Päätöksen perustelu
         <textarea id="report-approval-comment" maxlength="4000" placeholder="Pakollinen palautettaessa tai hylättäessä; hyväksynnässä valinnainen."></textarea>
@@ -221,8 +213,7 @@ _SAVE_SCRIPT_TEMPLATE = r"""
   const saveStateLabel = document.getElementById("report-save-state-label");
   const saveId = document.getElementById("report-save-id");
   const approvalPanel = document.getElementById("report-approval-panel");
-  const approvalActorId = document.getElementById("report-approval-actor-id");
-  const approvalActorName = document.getElementById("report-approval-actor-name");
+  const approvalActorSummary = document.getElementById("report-approval-actor-summary");
   const approvalComment = document.getElementById("report-approval-comment");
   const approveButton = document.getElementById("report-approve");
   const returnButton = document.getElementById("report-return");
@@ -230,13 +221,20 @@ _SAVE_SCRIPT_TEMPLATE = r"""
   const reviseButton = document.getElementById("report-revise");
   const approvalHistory = document.getElementById("report-approval-history");
 
-  if (previewMode) {
-    approvalActorId.value = "preview-coordinator";
-    approvalActorName.value = "Kehitysesikatselun koordinaattori";
-  }
-
   function setFeedback(message) {
     feedback.textContent = message;
+  }
+
+  async function loadSessionIdentity() {
+    try {
+      const response = await fetch("/api/session");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const session = await response.json();
+      const label = session.display_name || session.actor_id || "Kirjautunut käyttäjä";
+      approvalActorSummary.textContent = `Päätöksen tekijä: ${label} · ${session.identity_source}`;
+    } catch (error) {
+      approvalActorSummary.textContent = "Kirjautunutta identiteettiä ei voitu vahvistaa.";
+    }
   }
 
 
@@ -483,14 +481,7 @@ _SAVE_SCRIPT_TEMPLATE = r"""
 
   async function decideReport(decision) {
     if (!reportId || currentReportStatus !== "WAITING_APPROVAL") return;
-    const actorId = approvalActorId.value.trim();
-    const actorName = approvalActorName.value.trim();
     const comment = approvalComment.value.trim();
-    if (!actorId) {
-      setFeedback("Anna koordinaattorin auditointitunniste ennen päätöstä.");
-      approvalActorId.focus();
-      return;
-    }
     if (decision !== "APPROVE" && !comment) {
       setFeedback("Kirjaa perustelu ennen raportin palauttamista tai hylkäämistä.");
       approvalComment.focus();
@@ -504,8 +495,6 @@ _SAVE_SCRIPT_TEMPLATE = r"""
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           decision,
-          actor_id: actorId,
-          actor_display_name: actorName || null,
           comment: comment || null,
         }),
       });
@@ -609,6 +598,7 @@ _SAVE_SCRIPT_TEMPLATE = r"""
   returnButton.disabled = true;
   rejectButton.disabled = true;
   reviseButton.disabled = true;
+  loadSessionIdentity();
   setSaveState("", "Ei tallennettu");
 })();
 </script>

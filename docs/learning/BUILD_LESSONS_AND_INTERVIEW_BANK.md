@@ -247,7 +247,7 @@ This combines several transferable concepts: state machines, append-only audit d
 
 ### Security takeaway
 
-The current `CLIENT_ASSERTED` actor is deliberately labelled untrusted. It lets the domain workflow be tested without pretending that typed text is organization identity. The next security slice should derive actor identity and approval permission from the approved SSO boundary.
+The approval API no longer accepts a browser-supplied actor. Preview and local development use explicitly labelled fixed identities, while production accepts only a short-lived signed VakeTomatti gateway assertion and then enforces Funding permissions in backend dependencies. The remaining deployment step is mapping the approved organization SSO/OIDC roles/groups into those gateway permissions.
 
 ## 21. How to use this document
 

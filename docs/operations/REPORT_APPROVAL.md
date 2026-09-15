@@ -25,7 +25,7 @@ Direct editing of `APPROVED` returns HTTP 409. Direct submission of `REJECTED` o
 - `POST /api/reports/{id}/revise` — create/reuse the next draft version of an approved report.
 - `GET /api/reports/{id}` — inspect current report fields, lineage and approval events.
 
-Return/reject decision bodies require a `comment`. The API currently accepts `actor_id` and optional `actor_display_name` as staging inputs.
+Return/reject decision bodies require a `comment`. Decision bodies do **not** accept actor identity; actor ID, display name and permissions come from the server-resolved identity context.
 
 ## Approval evidence grain
 
@@ -53,9 +53,17 @@ The successor stores `supersedes_report_id`. A uniqueness constraint ensures one
 
 ## Actor trust boundary
 
-`CLIENT_ASSERTED` means the actor identifier came from the current API request. It is **not trusted organization identity**. It is retained so the data model and UI can be exercised before SSO integration.
+The browser cannot choose `actor_id` or `actor_display_name` for a decision. Extra actor fields in the decision body are rejected.
 
-Production approval must replace this with identity derived from the approved VakeTomatti/organization OIDC or equivalent boundary, then enforce authorization such as `funding.reports.approve`. The client must not be allowed to choose its own trusted actor identity.
+Identity sources are explicit:
+
+- `PREVIEW_FIXTURE` — fixed development-preview coordinator;
+- `DEVELOPMENT_STATIC` — local/integration development identity with all Funding permissions; production configuration rejects this mode;
+- `VAKETOMATTI_GATEWAY` — short-lived request-bound HMAC assertion produced by the approved upstream identity gateway.
+
+The gateway assertion carries an actor and explicit Funding permissions. Funding verifies the timestamp, signature, HTTP method, path and query before authorization. The HMAC secret belongs in approved secret management and must not be committed. The gateway/service connection must use the approved TLS/network boundary; the signature is not a replacement for transport security.
+
+The remaining deployment step is to connect the gateway's actor/permission mapping to the organization-approved SSO/OIDC source. Funding intentionally does not maintain local employee passwords or a competing user directory.
 
 ## Delivery boundary
 
@@ -71,7 +79,7 @@ For an approval incident, inspect in this order:
 2. `supersedes_report_id` lineage;
 3. ordered approval events;
 4. event `content_hash` and stored snapshot;
-5. actor source (`CLIENT_ASSERTED`, `PREVIEW_FIXTURE`, later trusted SSO source);
+5. actor source (`PREVIEW_FIXTURE`, `DEVELOPMENT_STATIC`, or `VAKETOMATTI_GATEWAY`);
 6. application logs/correlation context;
 7. delivery records separately if the report was sent.
 

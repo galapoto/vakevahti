@@ -564,7 +564,9 @@ async def decide_funding_report(
     report_id: UUID,
     decision: FundingReportDecisionRequest,
     *,
-    actor_source: str = "CLIENT_ASSERTED",
+    actor_id: str,
+    actor_display_name: str | None,
+    actor_source: str,
 ) -> FundingReportResponse:
     """Record one append-only coordinator decision against an immutable composition snapshot."""
 
@@ -599,8 +601,8 @@ async def decide_funding_report(
         id=uuid4(),
         report_id=report.id,
         decision=decision.decision.value,
-        actor_id=decision.actor_id,
-        actor_display_name=decision.actor_display_name,
+        actor_id=actor_id,
+        actor_display_name=actor_display_name,
         actor_source=actor_source,
         comment=decision.comment,
         decided_at=now,

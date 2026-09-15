@@ -182,8 +182,6 @@ async def test_coordinator_approval_is_immutable_audited_and_retry_safe(
 
     decision = {
         "decision": "APPROVE",
-        "actor_id": "coordinator-123",
-        "actor_display_name": "Test Coordinator",
         "comment": "Reviewed against the source evidence.",
     }
     approved = await client.post(f"/api/reports/{report_id}/decision", json=decision)
@@ -193,8 +191,8 @@ async def test_coordinator_approval_is_immutable_audited_and_retry_safe(
     assert len(payload["approval_events"]) == 1
     event = payload["approval_events"][0]
     assert event["decision"] == "APPROVE"
-    assert event["actor_id"] == "coordinator-123"
-    assert event["actor_source"] == "CLIENT_ASSERTED"
+    assert event["actor_id"] == "development-user"
+    assert event["actor_source"] == "DEVELOPMENT_STATIC"
     assert len(event["content_hash"]) == 64
     assert event["snapshot"]["title"] == "Approval workflow report"
     assert [item["funding_call_id"] for item in event["snapshot"]["items"]] == call_ids
@@ -231,7 +229,7 @@ async def test_return_reject_and_resubmission_require_explicit_state_transitions
 
     missing_comment = await client.post(
         f"/api/reports/{report_id}/decision",
-        json={"decision": "RETURN_FOR_EDIT", "actor_id": "coordinator-123"},
+        json={"decision": "RETURN_FOR_EDIT"},
     )
     assert missing_comment.status_code == 422
 
@@ -239,7 +237,6 @@ async def test_return_reject_and_resubmission_require_explicit_state_transitions
         f"/api/reports/{report_id}/decision",
         json={
             "decision": "RETURN_FOR_EDIT",
-            "actor_id": "coordinator-123",
             "comment": "Clarify the implementation owner before approval.",
         },
     )
@@ -259,8 +256,6 @@ async def test_return_reject_and_resubmission_require_explicit_state_transitions
         f"/api/reports/{report_id}/decision",
         json={
             "decision": "REJECT",
-            "actor_id": "coordinator-456",
-            "actor_display_name": "Second Coordinator",
             "comment": "Do not proceed with this funding opportunity.",
         },
     )
@@ -304,7 +299,7 @@ async def test_coordinator_queue_filters_waiting_reports(
 
     approved = await client.post(
         f"/api/reports/{report_id}/decision",
-        json={"decision": "APPROVE", "actor_id": "queue-coordinator"},
+        json={"decision": "APPROVE"},
     )
     assert approved.status_code == 200
 
@@ -321,7 +316,7 @@ async def test_approved_report_revision_creates_one_immutable_successor_version(
 
     approved = await client.post(
         f"/api/reports/{report_id}/decision",
-        json={"decision": "APPROVE", "actor_id": "version-coordinator"},
+        json={"decision": "APPROVE"},
     )
     assert approved.status_code == 200
     approved_payload = approved.json()

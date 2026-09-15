@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field, HttpUrl
+from pydantic import Field, HttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     migrate_database_on_startup: bool = False
     enable_report_write_routes: bool = False
     enable_case_write_routes: bool = False
+    identity_mode: str = "development"
+    identity_gateway_shared_secret: SecretStr = SecretStr("")
+    identity_gateway_max_age_seconds: int = Field(default=300, ge=30, le=3600)
     automatic_report_enabled: bool = True
     report_email_recipients: str = ""
     report_email_enabled: bool = False
@@ -52,6 +55,18 @@ class Settings(BaseSettings):
     smtp_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     report_email_retry_base_minutes: int = Field(default=5, ge=1, le=1440)
     report_email_retry_max_minutes: int = Field(default=240, ge=1, le=10080)
+
+    @model_validator(mode="after")
+    def validate_identity_boundary(self) -> "Settings":
+        mode = self.identity_mode.strip().lower()
+        if mode not in {"development", "gateway"}:
+            raise ValueError("IDENTITY_MODE must be development or gateway")
+        self.identity_mode = mode
+        if mode == "gateway" and len(self.identity_gateway_shared_secret.get_secret_value()) < 32:
+            raise ValueError("IDENTITY_GATEWAY_SHARED_SECRET must contain at least 32 characters")
+        if self.app_env.strip().lower() in {"production", "prod"} and mode != "gateway":
+            raise ValueError("Production requires IDENTITY_MODE=gateway")
+        return self
 
     @property
     def enabled_source_codes(self) -> tuple[str, ...]:

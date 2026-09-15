@@ -95,6 +95,17 @@ Authorization remains explicit and domain-scoped. Example permissions:
 
 "Authenticated" never automatically means "authorized for every Vaketomate module".
 
+Current standalone integration boundary:
+
+- preview mode resolves a fixed fixture actor;
+- non-production development may use the explicit `DEVELOPMENT_STATIC` actor;
+- production requires `IDENTITY_MODE=gateway`;
+- the VakeTomatti gateway signs actor ID, display name, canonical permissions, issue time, HTTP method, path and query;
+- Funding verifies that signature and then performs backend permission checks;
+- browser/request bodies never supply trusted approval actor identity.
+
+The signed gateway transports an identity that must already have been authenticated and authorized from the approved organization SSO/OIDC/role source. It does not create a second employee identity store.
+
 ## 6. Audit and correlation
 
 Every cross-module request/event should carry a correlation identifier. Source ingestion already uses a unique `source_scan_run.id`, which should propagate into downstream relevance review, notifications and events where practical.

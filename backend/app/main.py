@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.api.case_routes import router as case_router
+from app.api.identity_routes import router as identity_router
 from app.api.live_test import router as live_test_router
 from app.api.preview_case_routes import router as preview_case_router
 from app.api.preview_report_routes import router as preview_report_router
@@ -18,6 +19,7 @@ from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
 from app.db.startup_migrations import run_startup_migrations
 from app.scanners.stm import SourceStructureError, STMScanner
+from app.security.identity import build_identity_provider
 from app.ui.brand import apply_vake_brand_typography
 from app.ui.dashboard import DASHBOARD_HTML
 from app.ui.dashboard_case_tasks import render_dashboard_case_tasks
@@ -57,13 +59,15 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.19.0",
+        version="0.20.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
     application.state.session_factory = session_factory
+    application.state.identity_provider = build_identity_provider(settings)
     selected_router = preview_api_router if settings.dashboard_preview_mode else api_router
     application.include_router(selected_router)
+    application.include_router(identity_router)
 
     if settings.dashboard_preview_mode:
         application.include_router(preview_case_router)

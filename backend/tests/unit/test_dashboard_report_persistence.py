@@ -27,7 +27,9 @@ def test_preview_dashboard_exposes_real_save_and_submit_controls() -> None:
     assert 'id="report-revise"' in html
     assert "/revise" in html
     assert "Luo uusi versio" in html
-    assert "korvataan organisaation SSO-identiteetillä" in html
+    assert "Päätöksen tekijä vahvistetaan palvelimen identiteettirajasta" in html
+    assert 'id="report-approval-actor-id"' not in html
+    assert "/api/session" in html
     assert "Testiluonnos tallennettu" in html
     assert "fixture-muistiin" in html
 
