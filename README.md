@@ -20,7 +20,9 @@ Downstream workflow now includes:
 
 - persisted funding-call and source-health read APIs;
 - a durable notification outbox with deduplication, lease-based claiming, retry state and delivery boundaries;
-- persisted funding-report drafts, editable email content and submission to a coordinator-approval queue;
+- persisted funding-report drafts, editable email content and a bounded coordinator-approval queue;
+- auditable approve / return-for-edit / reject decisions with immutable content snapshots and SHA-256 hashes;
+- immutable approved report versions with explicit successor lineage (`version_number` / `supersedes_report_id`);
 - durable report-email delivery with retry semantics;
 - stable funding `case_id` identities that survive funding-call content changes;
 - versioned cross-app artifacts for Prosessikuvaus, Raportointi and later VakeTomatti modules;
@@ -141,12 +143,11 @@ This keeps VakeVahti capable of growing from funding monitoring into a much larg
 
 The earlier source-ingestion/read-API/outbox priorities are complete. The next slices should move the system from a strong funding-monitoring workflow into an approved employee production workflow:
 
-1. **Complete the coordinator approval state machine and audit trail.** Reports can currently move from `DRAFT` to `WAITING_APPROVAL`; add explicit approve/reject/return-for-edit decisions, immutable approval evidence, actor identity and timestamps.
-2. **Add approved organization identity and authorization.** Replace environment-variable write gates with the VakeTomatti/organization SSO boundary plus permissions such as read, review, edit, approve and administer. Authentication must not imply universal authorization.
-3. **Connect approved workplace delivery infrastructure.** Keep the existing outbox/retry contracts, but wire production email/notification transport, secrets and operational alerting only through approved deployment configuration.
-4. **Integrate real cross-app artifacts.** Replace starter-only Prosessikuvaus/Raportointi content with versioned artifacts produced by those modules; add authorized file/deep-link handling without copying confidential documents into unsafe locations.
-5. **Expand opportunity -> application -> project lifecycle.** Add application ownership, decision/status history, deadlines and the published Project-service handoff when a funded application becomes a project.
-6. **Integrate with the VakeTomatti shell.** Reuse shared identity, audit aggregation, scheduling, notification and project-management contracts while keeping Funding tables and business logic domain-owned.
-7. **Production hardening and final employee UX.** Finish role-aware audit views, operational alerts/metrics, accessibility, deployment runbooks, backup/recovery expectations and the final employee-facing application shell.
+1. **Add approved organization identity and authorization.** Replace client-asserted approval actors and environment-variable write gates with the VakeTomatti/organization SSO boundary plus permissions such as read, review, edit, approve and administer. Authentication must not imply universal authorization.
+2. **Connect approval policy to workplace delivery infrastructure.** Keep the existing outbox/retry contracts, but require the appropriate approved report/artifact version before production email/notification delivery and load secrets only through approved deployment configuration.
+3. **Integrate real cross-app artifacts.** Replace starter-only Prosessikuvaus/Raportointi content with versioned artifacts produced by those modules; add authorized file/deep-link handling without copying confidential documents into unsafe locations.
+4. **Expand opportunity -> application -> project lifecycle.** Add application ownership, decision/status history, deadlines and the published Project-service handoff when a funded application becomes a project.
+5. **Integrate with the VakeTomatti shell.** Reuse shared identity, audit aggregation, scheduling, notification and project-management contracts while keeping Funding tables and business logic domain-owned.
+6. **Production hardening and final employee UX.** Finish role-aware audit views, operational alerts/metrics, accessibility, deployment runbooks, backup/recovery expectations and the final employee-facing application shell.
 
 Do not restart already completed source adapters, persisted read APIs or notification deduplication merely because older documentation lists them as future work.
