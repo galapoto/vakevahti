@@ -23,7 +23,8 @@ def test_preview_mode_serves_themed_dashboard_without_database() -> None:
     assert "Kehitysesikatselu · fixture-data" in response.text
     assert "Rahoitushakujen tilannekuva" in response.text
     assert 'id="theme-toggle"' in response.text
-    assert "data:image/svg+xml;base64" in response.text
+    assert "data:image/png;base64" in response.text
+    assert "Miksi nämä rahoitushaut sopivat VakeHyvälle" in response.text
 
 
 def test_preview_mode_exposes_five_source_read_contracts() -> None:
@@ -59,6 +60,7 @@ def test_preview_mode_exposes_five_source_read_contracts() -> None:
     assert sources["HAEAVUSTUKSIA"]["review_call_count"] == 2
     assert sources["EURA"]["current_call_count"] == 5
     assert all(item["health"] == "HEALTHY" for item in sources.values())
+    assert all(item["latest_scan_status"] == "succeeded" for item in sources.values())
 
 
 def test_preview_readiness_is_explicitly_fixture_backed() -> None:

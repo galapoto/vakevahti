@@ -31,11 +31,13 @@ def test_employee_dashboard_separates_confirmed_and_reviewable_calls() -> None:
     assert "varmistetut ja tarkistettavat rahoitushaut" in html
     assert "item.relevant_call_count || 0" in html
     assert "item.review_call_count || 0" in html
-    assert "Miksi tarkistettava: " in html
+    assert "Miksi tämä vaatii tarkistuksen" in html
+    assert "Miksi tämä sopii VakeHyvälle" in html
     assert "Miksi tämä on tarkistettava" in html
     assert 'row.dataset.relevance = String(call.relevance_status || "")' in html
     assert '.opportunity[data-relevance="NEEDS_REVIEW"]' in html
     assert "vahvistettua · ${reviewCount} tarkistettavaa" in html
+    assert "Miksi nämä rahoitushaut sopivat VakeHyvälle" in html
 
 
 def test_employee_dashboard_is_persisted_read_only() -> None:
@@ -45,3 +47,10 @@ def test_employee_dashboard_is_persisted_read_only() -> None:
     assert "fetch(`/api/funding-calls?${params.toString()}`)" in html
     assert "/api/demo/stm-calls" not in html
     assert "relevanceReason(call)" in html
+
+
+def test_employee_dashboard_base_has_no_legacy_pure_red_brand() -> None:
+    html = render_dashboard_html(DASHBOARD_HTML).lower()
+
+    for legacy_color in ("#e20b17", "#b70710", "#ff2631", "#d8000c"):
+        assert legacy_color not in html

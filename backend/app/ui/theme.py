@@ -1,24 +1,8 @@
 """Vake-aligned presentation layer for the operational dashboard."""
 
-_LOGO_DATA = (
-    "data:image/svg+xml;base64,"
-    "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA3MCA3MCI+CjxyZWN0"
-    "IHg9IjE1IiB5PSI1IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIxLjUiIGZpbGw9IiMzMTI3ODMiLz4KPHJl"
-    "Y3QgeD0iNDUiIHk9IjUiIHdpZHRoPSIxMCIgaGVpZ2h0PSIxMCIgcng9IjEuNSIgZmlsbD0iI0U2MDA3RSIvPgo8"
-    "cmVjdCB4PSI1IiB5PSIyMCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiByeD0iMS41IiBmaWxsPSIjNzZDQkYzIi8+"
-    "CjxyZWN0IHg9IjIwIiB5PSIyMCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiByeD0iMS41IiBmaWxsPSIjMzEyNzgz"
-    "Ii8+CjxyZWN0IHg9IjM1IiB5PSIyMCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiByeD0iMS41IiBmaWxsPSIjRUE1"
-    "Mjk3Ii8+CjxyZWN0IHg9IjUwIiB5PSIyMCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiByeD0iMS41IiBmaWxsPSIj"
-    "RTYwMDdFIi8+CjxyZWN0IHg9IjUiIHk9IjM1IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIxLjUiIGZpbGw9"
-    "IiMwMDk4M0EiLz4KPHJlY3QgeD0iMjAiIHk9IjM1IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIxLjUiIGZp"
-    "bGw9IiM3NEI3MkIiLz4KPHJlY3QgeD0iMzUiIHk9IjM1IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIxLjUi"
-    "IGZpbGw9IiM3NkNCRjMiLz4KPHJlY3QgeD0iNTAiIHk9IjM1IiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4PSIx"
-    "LjUiIGZpbGw9IiNFQTUyOTciLz4KPHJlY3QgeD0iMjAiIHk9IjUwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAiIHJ4"
-    "PSIxLjUiIGZpbGw9IiMwMDk4M0EiLz4KPHJlY3QgeD0iMzUiIHk9IjUwIiB3aWR0aD0iMTAiIGhlaWdodD0iMTAi"
-    "IHJ4PSIxLjUiIGZpbGw9IiM3NEI3MkIiLz4KPHJlY3QgeD0iNTAiIHk9IjUwIiB3aWR0aD0iMTAiIGhlaWdodD0i"
-    "MTAiIHJ4PSIxLjUiIGZpbGw9IiNFNjAwN0UiLz4KPHJlY3QgeD0iMzUiIHk9IjY1IiB3aWR0aD0iMTAiIGhlaWdo"
-    "dD0iNCIgcng9IjEuNSIgZmlsbD0iIzMxMjc4MyIvPgo8L3N2Zz4="
-)
+from app.ui.brand import VAKE_OFFICIAL_HEART_DATA_URI
+
+_LOGO_DATA = VAKE_OFFICIAL_HEART_DATA_URI
 
 _THEME_BOOTSTRAP = """
 <script>
@@ -156,12 +140,13 @@ _THEME_STYLES = f"""
     box-shadow: var(--shadow-xs);
   }}
 
-  .logo svg {{ display: none; }}
+  .logo svg,
+  .logo-fallback {{ display: none; }}
 
   .logo::before {{
     content: "";
-    width: 42px;
-    height: 42px;
+    width: 43px;
+    height: 38px;
     background: url("{_LOGO_DATA}") center / contain no-repeat;
   }}
 
@@ -314,7 +299,7 @@ _THEME_STYLES = f"""
     .top-actions {{ gap: 6px; }}
     .theme-toggle-label {{ display: none; }}
     .theme-toggle {{ width: 36px; padding: 7px; justify-content: center; }}
-    .logo::before {{ width: 36px; height: 36px; }}
+    .logo::before {{ width: 39px; height: 34px; }}
   }}
 </style>
 """
