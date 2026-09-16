@@ -112,7 +112,7 @@ async def send_case_email(
     session: SessionDependency,
     _actor: EditActor,
 ) -> FundingCaseEmailQueueResponse:
-    """Queue a case email to oneself or any validated recipient list."""
+    """Create the case email report and submit it for coordinator approval."""
 
     _require_case_writes(request)
     try:

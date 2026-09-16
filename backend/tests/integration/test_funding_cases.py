@@ -75,6 +75,7 @@ async def case_api() -> tuple[
         database_url=TEST_DATABASE_URL,
         enabled_sources="STM",
         enable_case_write_routes=True,
+        enable_report_write_routes=True,
     )
     application = create_app(settings, session_factory=session_factory)
     transport = httpx.ASGITransport(app=application)
@@ -164,24 +165,47 @@ async def test_case_collects_cross_app_artifacts_and_queues_one_email_package(
     )
     assert queued_response.status_code == 202
     queued = queued_response.json()
-    assert queued["delivery_status"] == "PENDING"
+    assert queued["report_status"] == "WAITING_APPROVAL"
+    assert queued["delivery_id"] is None
+    assert queued["delivery_status"] == "NOT_QUEUED"
     assert queued["recipients"] == ["user@example.test", "owner@example.test"]
 
     async with session_factory() as session:
-        delivery = (
-            await session.scalars(
-                select(FundingReportDelivery).where(
-                    FundingReportDelivery.id == queued["delivery_id"]
-                )
-            )
-        ).one()
         report = await session.get(FundingReport, queued["report_id"])
         assert report is not None
+        assert report.status == "WAITING_APPROVAL"
         assert str(report.case_id) == case_id
         assert set(report.included_artifact_ids) == {
             process_v2.json()["id"],
             reporting.json()["id"],
         }
+        before_approval = list(
+            (
+                await session.scalars(
+                    select(FundingReportDelivery).where(
+                        FundingReportDelivery.report_id == report.id
+                    )
+                )
+            ).all()
+        )
+        assert before_approval == []
+
+    approved_response = await client.post(
+        f"/api/reports/{queued['report_id']}/decision",
+        json={"decision": "APPROVE"},
+    )
+    assert approved_response.status_code == 200
+    assert approved_response.json()["status"] == "APPROVED"
+
+    async with session_factory() as session:
+        delivery = (
+            await session.scalars(
+                select(FundingReportDelivery).where(
+                    FundingReportDelivery.report_id == queued["report_id"]
+                )
+            )
+        ).one()
+        assert delivery.status == "PENDING"
         assert delivery.recipient_emails == ["user@example.test", "owner@example.test"]
         assert "Prosessikuvaus" in delivery.body_text
         assert "Raportointi" in delivery.body_text

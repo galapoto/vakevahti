@@ -130,6 +130,7 @@ class FundingCaseEmailSendRequest(BaseModel):
 class FundingCaseEmailQueueResponse(BaseModel):
     case_id: UUID
     report_id: UUID
-    delivery_id: int
+    report_status: str
+    delivery_id: int | None
     delivery_status: str
     recipients: list[str]

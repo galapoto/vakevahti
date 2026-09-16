@@ -67,9 +67,11 @@ The remaining deployment step is to connect the gateway's actor/permission mappi
 
 ## Delivery boundary
 
-The approval workflow does not yet claim that every email path is approval-gated. In particular, the existing case-email queue was built as a staging integration path and can create a durable delivery from a case composition independently of this report approval state machine.
+Durable report-email delivery is approval-gated. `enqueue_report_email` rejects any report that is not `APPROVED`. Case-email preparation creates a report in `WAITING_APPROVAL` with `delivery_id=null` / `delivery_status=NOT_QUEUED`. Approval of that exact report version creates the durable `PENDING` delivery when recipients, subject and body are present.
 
-Before workplace production enablement, define and test the policy connecting approved report/artifact versions to notification/email transport, and derive recipient/actor permissions from trusted identity. Do not use `ENABLE_*_WRITE_ROUTES` as a substitute for authorization.
+Automatic scan reports follow the same rule: they may be submitted for coordinator approval automatically, but the worker no longer creates a delivery from a draft. The mail worker only processes durable deliveries created after approval.
+
+Production still requires the approved SMTP/Graph transport, sender/recipient policy, secret management and operational alerting. Do not use `ENABLE_*_WRITE_ROUTES` as a substitute for authorization.
 
 ## Operational checks
 

@@ -25,6 +25,7 @@ from app.db.report_models import (
     FundingReportItem,
 )
 from app.services.report_composer import ReportFinding, compose_automated_report
+from app.services.report_email_delivery import enqueue_report_email
 
 
 class FundingReportNotFoundError(LookupError):
@@ -619,6 +620,11 @@ async def decide_funding_report(
     else:
         report.status = FundingReportStatus.REJECTED.value
     report.updated_at = now
+
+    await session.flush()
+    if decision.decision is FundingReportApprovalDecision.APPROVE:
+        approved_response = await _response(session, report)
+        await enqueue_report_email(session, approved_response)
 
     await session.commit()
     return await _response(session, report)

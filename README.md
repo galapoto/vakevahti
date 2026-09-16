@@ -23,7 +23,7 @@ Downstream workflow now includes:
 - persisted funding-report drafts, editable email content and a bounded coordinator-approval queue;
 - auditable approve / return-for-edit / reject decisions with immutable content snapshots and SHA-256 hashes;
 - immutable approved report versions with explicit successor lineage (`version_number` / `supersedes_report_id`);
-- durable report-email delivery with retry semantics;
+- approval-gated durable report-email delivery with retry semantics;
 - stable funding `case_id` identities that survive funding-call content changes;
 - versioned cross-app artifacts for Prosessikuvaus, Raportointi and later VakeTomatti modules;
 - a unified funding-case workspace with automated workflow tasks and next-action guidance;
@@ -144,7 +144,7 @@ This keeps VakeVahti capable of growing from funding monitoring into a much larg
 The earlier source-ingestion/read-API/outbox priorities are complete. The next slices should move the system from a strong funding-monitoring workflow into an approved employee production workflow:
 
 1. **Connect the signed VakeTomatti identity gateway to approved organization SSO/OIDC and role mapping.** The Funding backend now verifies request-bound gateway signatures and enforces explicit domain permissions; deployment still needs the approved upstream login/role source, gateway secret management and network boundary.
-2. **Connect approval policy to workplace delivery infrastructure.** Keep the existing outbox/retry contracts, but require the appropriate approved report/artifact version before production email/notification delivery and load secrets only through approved deployment configuration.
+2. **Connect the approved delivery queue to workplace mail infrastructure.** Approval now gates durable report-email delivery; the remaining deployment work is approved SMTP/Graph transport, secret management, sender policy and operational alerting.
 3. **Integrate real cross-app artifacts.** Replace starter-only Prosessikuvaus/Raportointi content with versioned artifacts produced by those modules; add authorized file/deep-link handling without copying confidential documents into unsafe locations.
 4. **Expand opportunity -> application -> project lifecycle.** Add application ownership, decision/status history, deadlines and the published Project-service handoff when a funded application becomes a project.
 5. **Integrate with the VakeTomatti shell.** Reuse shared identity, audit aggregation, scheduling, notification and project-management contracts while keeping Funding tables and business logic domain-owned.

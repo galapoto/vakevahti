@@ -25,7 +25,7 @@ async def test_preview_dashboard_contains_unified_case_workspace() -> None:
     assert "Rahoituscase · VakeTomatti" in html
     assert "Prosessikuvaus" in html
     assert "Raportointi" in html
-    assert "Lähetä sähköposti" in html
+    assert "Siirrä hyväksyntään" in html
     assert "Poppins" in html
     assert "#312783" in html
     assert "#E6007E" in html
@@ -74,8 +74,15 @@ async def test_preview_case_api_builds_cross_app_email_package_and_task_plan() -
 
     assert queued_response.status_code == 202
     queued = queued_response.json()
-    assert queued["delivery_status"] == "PREVIEW_QUEUED"
+    assert queued["report_status"] == "WAITING_APPROVAL"
+    assert queued["delivery_id"] is None
+    assert queued["delivery_status"] == "NOT_QUEUED"
     assert queued["recipients"] == ["user@example.test", "owner@example.test"]
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+        queue = await client.get("/api/reports", params={"status": "WAITING_APPROVAL"})
+    assert queue.status_code == 200
+    assert queued["report_id"] in {item["id"] for item in queue.json()["items"]}
 
 
 @pytest.mark.asyncio

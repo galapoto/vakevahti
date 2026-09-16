@@ -280,7 +280,7 @@ _CASE_SECTION = r"""
           </label>
           <div class="case-email-actions">
             <button id="case-refresh-package" class="case-action" type="button">Päivitä automaattinen pohja</button>
-            <button id="case-send-email" class="case-action send" type="button">Lähetä sähköposti</button>
+            <button id="case-send-email" class="case-action send" type="button">Siirrä hyväksyntään</button>
           </div>
           <div id="case-feedback" class="case-feedback" aria-live="polite"></div>
         </div>
@@ -597,7 +597,7 @@ _CASE_SCRIPT_TEMPLATE = r"""
       return;
     }
     ui.send.disabled = true;
-    setFeedback(previewMode ? "Simuloidaan lähetystä…" : "Jonotetaan sähköpostia…");
+    setFeedback(previewMode ? "Luodaan hyväksyttävää testiraporttia…" : "Luodaan raporttia hyväksyntään…");
     try {
       const response = await fetch(`/api/cases/${encodeURIComponent(activeCase.id)}/email`, {
         method: "POST",
@@ -618,18 +618,18 @@ _CASE_SCRIPT_TEMPLATE = r"""
       }
       const queued = await response.json();
       const message = previewMode
-        ? `Esikatselujono valmis vastaanottajille: ${queued.recipients.join(", ")}. Oikeaa sähköpostia ei lähetetty.`
-        : `Sähköposti jonotettiin. Tila: ${queued.delivery_status}.`;
+        ? `Testiraportti siirrettiin hyväksyntään vastaanottajille: ${queued.recipients.join(", ")}. Oikeaa sähköpostia ei jonotettu.`
+        : `Raportti siirrettiin koordinaattorin hyväksyntään. Sähköposti jonotetaan vasta hyväksynnän jälkeen.`;
       setFeedback(message);
       const event = document.createElement("div");
       event.className = "case-event";
       event.append(
-        node("strong", previewMode ? "Sähköpostilähetys simuloitu" : "Sähköposti jonotettu"),
+        node("strong", "Sähköpostipaketti siirretty hyväksyntään"),
         node("span", new Intl.DateTimeFormat("fi-FI", { dateStyle: "short", timeStyle: "short" }).format(new Date()))
       );
       ui.timeline.append(event);
     } catch (error) {
-      setFeedback("Sähköpostia ei voitu jonottaa. Tarkista osoitteet ja integraation tila.");
+      setFeedback("Raporttia ei voitu siirtää hyväksyntään. Tarkista osoitteet ja integraation tila.");
     } finally {
       ui.send.disabled = false;
     }

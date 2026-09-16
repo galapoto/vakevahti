@@ -249,7 +249,21 @@ This combines several transferable concepts: state machines, append-only audit d
 
 The approval API no longer accepts a browser-supplied actor. Preview and local development use explicitly labelled fixed identities, while production accepts only a short-lived signed VakeTomatti gateway assertion and then enforces Funding permissions in backend dependencies. The remaining deployment step is mapping the approved organization SSO/OIDC roles/groups into those gateway permissions.
 
-## 21. How to use this document
+## 21. Approval-gated delivery closes the workflow boundary
+
+### Lesson
+
+A reliable approval workflow must protect the side effect, not only the UI button. VakeVahti therefore enforces the rule inside `enqueue_report_email`: a durable email delivery may be created only from an `APPROVED` report version. The case-email endpoint now creates a report in `WAITING_APPROVAL`, and approval of that exact immutable version creates the delivery.
+
+### Interview: Why enforce approval in the delivery service instead of only hiding the send button?
+
+> Frontend controls are usability, not authorization or business invariants. Another API caller, background job or future UI could bypass a hidden button. I placed the invariant at the delivery boundary itself, then adapted every caller to satisfy it. That makes the rule reusable and fail-safe.
+
+### Interview: Why separate approval state from delivery state?
+
+> They are different facts with different failure modes. `APPROVED` means a coordinator accepted a specific composition; `PENDING/PROCESSING/SENT/FAILED` describes transport of that approved composition. Keeping them separate makes retries safe and prevents an SMTP failure from rewriting business approval history.
+
+## 22. How to use this document
 
 After each meaningful implementation slice:
 

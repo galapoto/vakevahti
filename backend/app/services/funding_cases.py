@@ -21,8 +21,10 @@ from app.db.case_models import FundingCase, FundingCaseArtifact, FundingCaseTask
 from app.db.models import FundingCallRecord
 from app.domain.funding_call import RelevanceStatus
 from app.services.case_automation import case_next_action
-from app.services.funding_reports import create_funding_report
-from app.services.report_email_delivery import enqueue_report_email
+from app.services.funding_reports import (
+    create_funding_report,
+    submit_funding_report_for_approval,
+)
 
 _AUTOMATION_SOURCE = "VAKEVAHTI_AUTOMATION"
 _AUTOMATION_FALLBACK_TYPES = frozenset({"PROCESS_DESCRIPTION", "REPORTING"})
@@ -426,7 +428,7 @@ async def queue_case_email(
     case_id: UUID,
     request: FundingCaseEmailSendRequest,
 ) -> FundingCaseEmailQueueResponse:
-    """Snapshot and queue an editable case package through durable report delivery."""
+    """Snapshot a case package into a report and submit it for approval."""
 
     case = await get_funding_case(session, case_id)
     package = compose_case_email_package(case, artifact_ids=request.artifact_ids)
@@ -451,16 +453,12 @@ async def queue_case_email(
             artifact.id for artifact in package.included_artifacts
         ),
     )
-    delivery = await enqueue_report_email(session, report)
-    if delivery is None:
-        raise RuntimeError(
-            "Case email was not queueable despite validated recipients and content."
-        )
-    await session.commit()
+    submitted = await submit_funding_report_for_approval(session, report.id)
     return FundingCaseEmailQueueResponse(
         case_id=case.id,
-        report_id=report.id,
-        delivery_id=delivery.id,
-        delivery_status=delivery.status,
-        recipients=list(delivery.recipient_emails),
+        report_id=submitted.id,
+        report_status=submitted.status.value,
+        delivery_id=None,
+        delivery_status="NOT_QUEUED",
+        recipients=list(submitted.recipient_emails),
     )

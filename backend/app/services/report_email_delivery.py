@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.report_schemas import FundingReportResponse
+from app.api.report_schemas import FundingReportResponse, FundingReportStatus
 from app.db.report_models import FundingReportDelivery
 from app.services.report_email_renderer import render_report_email_html
 
@@ -17,6 +17,10 @@ class ReportDeliveryStatus(StrEnum):
     PROCESSING = "PROCESSING"
     SENT = "SENT"
     FAILED = "FAILED"
+
+
+class UnapprovedReportDeliveryError(RuntimeError):
+    """Raised when delivery is attempted before coordinator approval."""
 
 
 class StaleReportDeliveryClaimError(RuntimeError):
@@ -55,6 +59,11 @@ async def enqueue_report_email(
     created_at: datetime | None = None,
 ) -> FundingReportDelivery | None:
     """Durably snapshot one report email exactly once for the current composition."""
+
+    if report.status is not FundingReportStatus.APPROVED:
+        raise UnapprovedReportDeliveryError(
+            f"Report {report.id} must be APPROVED before email delivery is queued."
+        )
 
     recipients = [value.strip() for value in report.recipient_emails if value.strip()]
     subject = (report.email_subject or "").strip()

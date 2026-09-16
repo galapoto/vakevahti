@@ -11,11 +11,13 @@ from app.config import Settings, get_settings
 from app.db.session import create_engine, create_session_factory
 from app.scanners.base import FundingSourceAdapter
 from app.scanners.registry import build_scanners
-from app.services.funding_reports import create_automated_funding_report
+from app.services.funding_reports import (
+    create_automated_funding_report,
+    submit_funding_report_for_approval,
+)
 from app.services.ingestion import IngestionRunResult, ScanTrigger, run_source_ingestion
 from app.services.report_email_delivery import (
     claim_report_emails,
-    enqueue_report_email,
     mark_report_email_failed,
     mark_report_email_sent,
     retry_delay_minutes,
@@ -77,29 +79,21 @@ async def _compose_cycle_report(
     return report
 
 
-async def _enqueue_automatic_report_email(
+async def _submit_automatic_report_for_approval(
     settings: Settings,
     session_factory: async_sessionmaker[AsyncSession],
     report: FundingReportResponse | None,
 ) -> None:
-    if report is None or not settings.report_email_auto_send:
+    if report is None or not settings.automatic_report_submit_for_approval:
         return
 
     async with session_factory() as session:
-        async with session.begin():
-            delivery = await enqueue_report_email(session, report)
-    if delivery is None:
-        logger.info(
-            "automatic_report_email_skipped report_id=%s reason=missing_recipient_or_content",
-            report.id,
-        )
-        return
-
+        submitted = await submit_funding_report_for_approval(session, report.id)
     logger.info(
-        "automatic_report_email_queued report_id=%s delivery_id=%s recipients=%s",
-        report.id,
-        delivery.id,
-        len(delivery.recipient_emails),
+        "automatic_report_submitted_for_approval report_id=%s findings=%s recipients=%s",
+        submitted.id,
+        len(submitted.items),
+        len(submitted.recipient_emails),
     )
 
 
@@ -162,7 +156,7 @@ async def _run_post_scan_automation(
     run_ids: tuple[UUID, ...],
 ) -> None:
     report = await _compose_cycle_report(settings, session_factory, run_ids)
-    await _enqueue_automatic_report_email(settings, session_factory, report)
+    await _submit_automatic_report_for_approval(settings, session_factory, report)
     await _deliver_pending_report_emails(settings, session_factory)
 
 

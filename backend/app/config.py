@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     identity_gateway_shared_secret: SecretStr = SecretStr("")
     identity_gateway_max_age_seconds: int = Field(default=300, ge=30, le=3600)
     automatic_report_enabled: bool = True
+    automatic_report_submit_for_approval: bool = True
     report_email_recipients: str = ""
     report_email_enabled: bool = False
     report_email_auto_send: bool = True

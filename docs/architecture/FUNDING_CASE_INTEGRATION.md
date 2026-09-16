@@ -62,9 +62,9 @@ An `APPROVED` funding report is immutable. Continued work creates a successor re
 with `supersedes_report_id` pointing to the approved version. Consumers should follow this
 lineage instead of updating an approved row in place.
 
-The current standalone actor field is client-asserted staging context. VakeTomatti must later
-provide authenticated actor identity and authorization; callers must never be allowed to turn a
-self-supplied identifier into trusted approval evidence.
+Approval actor identity is server-resolved. Preview/development use explicitly labelled fixed
+identities; production requires the signed VakeTomatti gateway identity and explicit Funding
+permissions. Decision request bodies cannot supply trusted actor fields.
 
 ## Case email package
 
@@ -77,10 +77,12 @@ chooses the newest `APPROVED` version. If no version has been approved, the newe
 is used so the user can still review a complete draft package.
 
 `POST /api/cases/{case_id}/email` accepts recipients and optional subject/body/artifact
-selection. It creates a case-linked funding report, snapshots the exact artifact IDs used,
-and queues an immutable durable email delivery. The existing mail worker is responsible
-for SMTP delivery and retries; the HTTP request does not depend on the mail provider being
-available at that moment.
+selection. It creates a case-linked funding report, snapshots the exact artifact IDs used, and
+submits that report to `WAITING_APPROVAL`. It deliberately does **not** create an email delivery.
+
+When a coordinator approves that exact report version, the approval service creates the durable
+email-delivery row if recipients, subject and body are present. The existing mail worker then owns
+transport/retry semantics. This prevents the case-email path from bypassing coordinator approval.
 
 This supports both `send to myself` and `send to others`. In the workplace deployment the
 general dashboard should pre-fill the signed-in user's email from the authenticated
@@ -109,7 +111,7 @@ For each case it can obtain:
 - authoritative funding facts from `GET /api/cases/{case_id}`;
 - every registered artifact and version from the same response;
 - a ready-to-edit case email composition from `/email-package`;
-- durable send acknowledgement from `POST /email`.
+- approval-queue acknowledgement from `POST /email`; durable delivery exists only after the report is approved.
 
 The intended employee workspace is one case page with sections for Yhteenveto,
 Rahoitusraportti, Prosessikuvaus, Raportointi, Liitteet, Sähköposti and Tapahtumat.

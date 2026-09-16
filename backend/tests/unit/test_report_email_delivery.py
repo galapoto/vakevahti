@@ -1,12 +1,20 @@
 from datetime import UTC, datetime
+from unittest.mock import AsyncMock
 from uuid import uuid4
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.report_schemas import (
     FundingReportOrigin,
     FundingReportResponse,
     FundingReportStatus,
 )
-from app.services.report_email_delivery import retry_delay_minutes
+from app.services.report_email_delivery import (
+    UnapprovedReportDeliveryError,
+    enqueue_report_email,
+    retry_delay_minutes,
+)
 from app.services.report_email_renderer import render_report_email_html
 
 
@@ -57,3 +65,11 @@ def test_retry_delay_is_exponential_and_capped() -> None:
     assert retry_delay_minutes(1, base_minutes=5, max_minutes=60) == 5
     assert retry_delay_minutes(2, base_minutes=5, max_minutes=60) == 10
     assert retry_delay_minutes(5, base_minutes=5, max_minutes=60) == 60
+
+
+@pytest.mark.asyncio
+async def test_unapproved_report_cannot_enter_delivery_queue() -> None:
+    session = AsyncMock(spec=AsyncSession)
+
+    with pytest.raises(UnapprovedReportDeliveryError):
+        await enqueue_report_email(session, _report())

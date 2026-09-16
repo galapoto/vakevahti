@@ -12,7 +12,17 @@ from app.api.case_schemas import (
     FundingCaseResponse,
     FundingCaseTaskResponse,
 )
+from app.api.preview_report_routes import (
+    _REPORTS,
+)
+from app.api.preview_report_routes import (
+    create_report as create_preview_report,
+)
+from app.api.preview_report_routes import (
+    submit_report as submit_preview_report,
+)
 from app.api.preview_routes import _OBSERVED_AT, _PREVIEW_CALLS
+from app.api.report_schemas import FundingReportDraftCreate
 from app.api.schemas import FundingCallDetail
 from app.services.funding_cases import compose_case_email_package, stable_case_id
 
@@ -305,11 +315,30 @@ async def queue_preview_email(
     payload: FundingCaseEmailSendRequest,
 ) -> FundingCaseEmailQueueResponse:
     case = _find_case(case_id)
-    compose_case_email_package(case, artifact_ids=payload.artifact_ids)
+    package = compose_case_email_package(case, artifact_ids=payload.artifact_ids)
+    report = await create_preview_report(
+        FundingReportDraftCreate(
+            title=f"VakeHyvän rahoituscase · {case.funding_call.title}"[:200],
+            notes=f"Case {case.id} · kehitysesikatselun sähköpostipaketti.",
+            email_subject=(payload.subject or package.subject).strip(),
+            email_body=(payload.body or package.body).strip(),
+            recipient_emails=payload.recipient_emails,
+            funding_call_ids=[case.funding_call.id],
+        )
+    )
+    report = report.model_copy(
+        update={
+            "case_id": case_id,
+            "included_artifact_ids": [artifact.id for artifact in package.included_artifacts],
+        }
+    )
+    _REPORTS[report.id] = report
+    submitted = await submit_preview_report(report.id)
     return FundingCaseEmailQueueResponse(
         case_id=case_id,
-        report_id=uuid5(NAMESPACE_URL, f"vakevahti-preview-report:{case_id}"),
-        delivery_id=case.funding_call.id,
-        delivery_status="PREVIEW_QUEUED",
+        report_id=submitted.id,
+        report_status=submitted.status.value,
+        delivery_id=None,
+        delivery_status="NOT_QUEUED",
         recipients=payload.recipient_emails,
     )
