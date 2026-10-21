@@ -1,0 +1,1 @@
+GitHub Copilot: mandatory GLOBAL-AGENT-RUN-PROOF v1 in root AGENTS.md applies every run. Identify exact plan subpart and BEFORE/AFTER stage; core function; safe/licensed reused vs adapted/scratch; exact original CI and real deployment evidence; total DONE/IN PROGRESS/NOT STARTED/BLOCKED. Existing stricter repo limits stay effective.
