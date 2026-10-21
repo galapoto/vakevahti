@@ -1,0 +1,1 @@
+Claude / coding agents: read root AGENTS.md and follow GLOBAL-AGENT-RUN-PROOF v1 every run. Report precise project-plan part, stage delta, core value, reuse/scratch with provenance and licensing, exact tests/CI/live proof and whole-project roadmap and blockers. Do not bypass current security or approvals.
