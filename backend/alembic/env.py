@@ -9,6 +9,7 @@ from app.config import get_settings
 from app.db import case_models as db_case_models  # noqa: F401
 from app.db import models as db_models  # noqa: F401
 from app.db import report_models as db_report_models  # noqa: F401
+from app.db import requirement_models as db_requirement_models  # noqa: F401
 from app.db.base import Base
 
 config = context.config

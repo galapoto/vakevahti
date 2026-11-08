@@ -7,8 +7,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.api.case_requirement_routes import router as case_requirement_router
 from app.api.case_routes import router as case_router
 from app.api.live_test import router as live_test_router
+from app.api.preview_case_requirement_routes import router as preview_case_requirement_router
 from app.api.preview_case_routes import router as preview_case_router
 from app.api.preview_report_routes import router as preview_report_router
 from app.api.preview_routes import router as preview_api_router
@@ -20,6 +22,7 @@ from app.db.startup_migrations import run_startup_migrations
 from app.scanners.stm import SourceStructureError, STMScanner
 from app.ui.brand import apply_vake_brand_typography
 from app.ui.dashboard import DASHBOARD_HTML
+from app.ui.dashboard_case_requirements import render_dashboard_case_requirements
 from app.ui.dashboard_case_tasks import render_dashboard_case_tasks
 from app.ui.dashboard_case_workspace import render_dashboard_case_workspace
 from app.ui.dashboard_certainty_filter import render_dashboard_certainty_filter
@@ -57,7 +60,7 @@ def create_app(
 
     application = FastAPI(
         title=settings.app_name,
-        version="0.18.0",
+        version="0.19.0",
         lifespan=lifespan,
     )
     application.state.settings = settings
@@ -67,9 +70,11 @@ def create_app(
 
     if settings.dashboard_preview_mode:
         application.include_router(preview_case_router)
+        application.include_router(preview_case_requirement_router)
         application.include_router(preview_report_router)
     else:
         application.include_router(case_router)
+        application.include_router(case_requirement_router)
         if settings.enable_report_write_routes:
             application.include_router(report_router)
 
@@ -98,8 +103,9 @@ def create_app(
             preview_mode=settings.dashboard_preview_mode,
         )
         automated_cases = render_dashboard_case_tasks(cases)
+        requirement_cases = render_dashboard_case_requirements(automated_cases)
         reporting = render_dashboard_report_workspace(
-            automated_cases,
+            requirement_cases,
             preview_mode=settings.dashboard_preview_mode,
         )
         report_write_enabled = (
